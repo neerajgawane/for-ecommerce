@@ -1,0 +1,66 @@
+.
+├── README.md
+├── app
+│   ├── about
+│   │   └── page.tsx
+│   ├── admin
+│   │   ├── layout.tsx
+│   │   ├── login
+│   │   ├── orders
+│   │   ├── page.tsx
+│   │   └── products
+│   ├── api
+│   │   ├── admin
+│   │   ├── auth
+│   │   └── products
+│   ├── cart
+│   │   └── page.tsx
+│   ├── checkout
+│   │   └── page.tsx
+│   ├── favicon.ico
+│   ├── gallery
+│   │   └── page.tsx
+│   ├── globals.css
+│   ├── layout.tsx
+│   ├── login
+│   │   └── page.tsx
+│   ├── order-success
+│   │   └── page.tsx
+│   ├── page.tsx
+│   ├── products
+│   │   └── page.tsx
+│   ├── signup
+│   │   └── page.tsx
+│   └── studio
+│       └── page.tsx
+├── components
+│   ├── CartBadge.tsx
+│   └── Navbar.tsx
+├── eslint.config.mjs
+├── lib
+│   ├── auth.ts
+│   └── prisma.ts
+├── middleware.ts
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── prisma
+│   ├── schema.prisma
+│   └── seed.ts
+├── project-structure.txt
+├── public
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── mockups
+│   │   ├── tshirt-white-back.png
+│   │   └── tshirt-white-front.png
+│   ├── next.svg
+│   ├── vercel.svg
+│   └── window.svg
+├── store
+│   └── cartStore.ts
+└── tsconfig.json
+
+25 directories, 39 files
