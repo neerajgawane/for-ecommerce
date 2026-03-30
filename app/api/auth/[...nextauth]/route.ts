@@ -1,39 +1,48 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
+import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
+
   providers: [
+    // ── Google OAuth (regular users) ──────────────────────────────────────────
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+      allowDangerousEmailAccountLinking: true,
+      authorization: {
+        params: {
+          prompt: 'consent',
+          access_type: 'offline',
+          response_type: 'code',
+        },
+      },
+    }),
+
+    // ── Admin Credentials ─────────────────────────────────────────────────────
     CredentialsProvider({
       id: 'admin-credentials',
       name: 'Admin Credentials',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
+        if (!credentials?.email || !credentials?.password) return null;
 
         const admin = await prisma.admin.findUnique({
-          where: { email: credentials.email }
+          where: { email: credentials.email },
         });
 
-        if (!admin) {
-          return null;
-        }
+        if (!admin) return null;
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          admin.password
-        );
-
-        if (!isPasswordValid) {
-          return null;
-        }
+        const isValid = await bcrypt.compare(credentials.password, admin.password);
+        if (!isValid) return null;
 
         return {
           id: admin.id,
@@ -41,25 +50,103 @@ export const authOptions: NextAuthOptions = {
           name: admin.name,
           role: admin.role,
         };
-      }
+      },
+    }),
+
+    // ── User Email/Password ──────────────────────────────────────────────────
+    CredentialsProvider({
+      id: 'user-credentials',
+      name: 'Email & Password',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email.toLowerCase().trim() },
+        });
+
+        if (!user || !user.password) return null;
+
+        const isValid = await bcrypt.compare(credentials.password, user.password);
+        if (!isValid) return null;
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          role: user.role,
+        };
+      },
     }),
   ],
 
   pages: {
-    signIn: '/admin/login',  // ✅ CRITICAL: Must be admin login!
-    error: '/admin/login',
+    signIn: '/login',
+    error: '/login',
   },
 
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account }) {
+      // For Google sign-ins, upsert user in DB
+      if (account?.provider === 'google') {
+        try {
+          const existingUser = await prisma.user.findUnique({
+            where: { email: user.email! },
+          });
+
+          if (!existingUser) {
+            await prisma.user.create({
+              data: {
+                email: user.email!,
+                name: user.name ?? null,
+                image: user.image ?? null,
+                emailVerified: new Date(),
+                role: 'user',
+              },
+            });
+          } else if (!existingUser.image && user.image) {
+            // Update image if not set
+            await prisma.user.update({
+              where: { email: user.email! },
+              data: { image: user.image },
+            });
+          }
+        } catch (error) {
+          console.error('Error upserting Google user:', error);
+          return false;
+        }
+      }
+      return true;
+    },
+
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role;
+        token.role = (user as any).role ?? 'user';
+      }
+      // For Google users, look up their role from DB
+      if (account?.provider === 'google' && token.email) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: token.email as string },
+            select: { id: true, role: true },
+          });
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role;
+          }
+        } catch {
+          // Non-blocking
+        }
       }
       return token;
     },
@@ -72,14 +159,11 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
 
-    // ✅ ADD THIS: Custom redirect after login
     async redirect({ url, baseUrl }) {
-      // If url is relative, prepend baseUrl
       if (url.startsWith('/')) return `${baseUrl}${url}`;
-      // If url is on the same origin, allow it
       if (new URL(url).origin === baseUrl) return url;
-      // Default to admin page
-      return `${baseUrl}/admin`;
+      // Admin redirects to /admin, users to /
+      return baseUrl;
     },
   },
 

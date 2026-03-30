@@ -325,6 +325,12 @@ export default function DesignStudio() {
       const price = calculatePrice();
 
       addItem({
+        id: `custom-${Date.now()}`,
+        productId: `custom-design`,
+        name: `Custom ${tshirtGender} T-Shirt`,
+        image: designImage,
+        basePrice: price,
+        printPrice: 0,
         designId: `design-${Date.now()}`,
         designName: `Custom ${tshirtGender} T-Shirt`,
         designImage,
@@ -365,6 +371,12 @@ export default function DesignStudio() {
       const price = calculatePrice();
 
       addItem({
+        id: `custom-${Date.now()}`,
+        productId: `custom-design`,
+        name: `Custom ${tshirtGender} T-Shirt`,
+        image: designImage,
+        basePrice: price,
+        printPrice: 0,
         designId: `design-${Date.now()}`,
         designName: `Custom ${tshirtGender} T-Shirt`,
         designImage,

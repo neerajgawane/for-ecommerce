@@ -32,68 +32,109 @@ export default function ProductCard({
   return (
     <Link
       href={`/products/${id}`}
-      className="group relative"
+      className="group relative flex flex-col"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Product Image */}
-      <div className="relative aspect-[3/4] bg-gray-100 mb-3 overflow-hidden">
+      <div
+        className="relative aspect-[3/4] bg-[#F0EDE8] mb-3 overflow-hidden rounded-sm"
+        style={{
+          boxShadow: isHovered
+            ? '0 8px 30px rgba(0,0,0,0.10)'
+            : '0 2px 8px rgba(0,0,0,0.04)',
+          transition: 'box-shadow 0.3s ease',
+        }}
+      >
         {/* Front Image */}
-        <img
-          src={frontImage}
-          alt={name}
-          className="w-full h-full object-cover transition-opacity duration-300"
-          style={{ opacity: isHovered && backImage ? 0 : 1 }}
-        />
+        {frontImage ? (
+          <img
+            src={frontImage}
+            alt={name}
+            className="w-full h-full object-cover transition-all duration-500"
+            style={{
+              opacity: isHovered && backImage ? 0 : 1,
+              transform: isHovered ? 'scale(1.04)' : 'scale(1)',
+            }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <ShoppingBag className="w-10 h-10 text-[#C8BFB4]" />
+          </div>
+        )}
 
         {/* Back Image (shown on hover) */}
         {backImage && (
           <img
             src={backImage}
             alt={`${name} back`}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-            style={{ opacity: isHovered ? 1 : 0 }}
+            className="absolute inset-0 w-full h-full object-cover transition-all duration-500"
+            style={{
+              opacity: isHovered ? 1 : 0,
+              transform: isHovered ? 'scale(1.04)' : 'scale(1)',
+            }}
           />
         )}
 
-        {/* Badges */}
+        {/* New Arrival Badge */}
         {isFeatured && (
-          <div className="absolute top-2 left-2 bg-black text-white text-[10px] font-bold px-2 py-1 uppercase tracking-wide">
-            New Arrival
+          <div
+            className="absolute top-3 left-3 text-[10px] font-semibold tracking-widest uppercase px-2 py-1"
+            style={{
+              background: '#1C1C1C',
+              color: '#FAF8F5',
+              letterSpacing: '0.12em',
+            }}
+          >
+            New
           </div>
         )}
 
-        {/* Quick Actions - Desktop Only */}
-        <div className="hidden lg:flex absolute bottom-4 left-4 right-4 gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button className="flex-1 bg-white text-black text-xs font-semibold py-2 px-4 uppercase tracking-wide hover:bg-black hover:text-white transition">
-            Quick Buy
+        {/* Wishlist */}
+        <button
+          className="absolute top-3 right-3 w-8 h-8 bg-[#FAF8F5]/90 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-[#1C1C1C] hover:text-[#FAF8F5]"
+          style={{
+            opacity: isHovered ? 1 : 0,
+            transform: isHovered ? 'translateY(0)' : 'translateY(-4px)',
+            transition: 'opacity 0.25s ease, transform 0.25s ease, background 0.2s, color 0.2s',
+          }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          aria-label="Add to wishlist"
+        >
+          <Heart className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Quick Buy */}
+        <div
+          className="absolute bottom-0 left-0 right-0 transition-all duration-300"
+          style={{
+            opacity: isHovered ? 1 : 0,
+            transform: isHovered ? 'translateY(0)' : 'translateY(6px)',
+          }}
+        >
+          <button
+            className="w-full py-2.5 text-[11px] font-semibold tracking-widest uppercase bg-[#1C1C1C] text-[#FAF8F5] hover:bg-[#333] transition-colors"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          >
+            Quick View
           </button>
         </div>
-
-        {/* Wishlist */}
-        <button className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black hover:text-white">
-          <Heart className="w-4 h-4" />
-        </button>
       </div>
 
       {/* Product Info */}
-      <div className="space-y-1">
-        <h3 className="text-sm font-medium text-black line-clamp-2 group-hover:underline">
+      <div className="space-y-0.5 px-0.5">
+        <h3 className="text-sm font-medium text-[#1C1C1C] leading-snug line-clamp-1 group-hover:text-[#8B7355] transition-colors duration-200">
           {name}
         </h3>
-        <p className="text-xs text-gray-500 uppercase">{category}</p>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-black">₹{price}</span>
+        <p className="text-[11px] text-[#8B7355] uppercase tracking-widest font-medium">{category}</p>
+        <div className="flex items-center gap-2 pt-0.5">
+          <span className="text-sm font-semibold text-[#1C1C1C]">₹{price}</span>
+          {rating && reviewCount && (
+            <span className="text-[11px] text-[#B5A898]">
+              ★ {rating} ({reviewCount})
+            </span>
+          )}
         </div>
-
-        {/* Rating (optional) */}
-        {rating && reviewCount && (
-          <div className="flex items-center gap-1 text-xs text-gray-600">
-            <span className="text-yellow-500">★</span>
-            <span>{rating}</span>
-            <span className="text-gray-400">({reviewCount})</span>
-          </div>
-        )}
       </div>
     </Link>
   );

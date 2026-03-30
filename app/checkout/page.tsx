@@ -2,17 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useCartStore } from '@/store/cartStore';
 import { Mail, Phone, MapPin, CreditCard, Wallet, ArrowLeft, Shield } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { items, getTotalPrice, getTotalItems, clearCart } = useCartStore();
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Form state
@@ -27,34 +27,17 @@ export default function CheckoutPage() {
     paymentMethod: 'razorpay',
   });
 
-  // Check auth status
+  // Pre-fill from NextAuth session
   useEffect(() => {
-    const checkAuth = () => {
-      // TODO: Replace with actual auth check (NextAuth session)
-      const userSession = localStorage.getItem('user-session');
-
-      if (!userSession) {
-        // Not logged in - redirect to login with return URL
-        router.push(`/login?redirect=/checkout`);
-        return;
-      }
-
-      const userData = JSON.parse(userSession);
-      setIsLoggedIn(true);
-      setUser(userData);
-
-      // Pre-fill form with user data
+    if (session?.user) {
       setFormData(prev => ({
         ...prev,
-        name: userData.name || '',
-        email: userData.email || '',
+        name: session.user?.name || prev.name,
+        email: session.user?.email || prev.email,
       }));
-
-      setIsLoading(false);
-    };
-
-    checkAuth();
-  }, [router]);
+    }
+    setIsLoading(false);
+  }, [session]);
 
   // Check if cart is empty
   useEffect(() => {
@@ -142,9 +125,6 @@ export default function CheckoutPage() {
     );
   }
 
-  if (!isLoggedIn) {
-    return null; // Will redirect
-  }
 
   const subtotal = getTotalPrice();
   const gst = Math.round(subtotal * 0.18);
@@ -346,14 +326,14 @@ export default function CheckoutPage() {
                   {items.map((item) => (
                     <div key={item.id} className="flex gap-3">
                       <img
-                        src={item.designImage}
-                        alt={item.designName}
+                        src={item.image}
+                        alt={item.name}
                         className="w-16 h-16 object-cover rounded-lg"
                       />
                       <div className="flex-1">
-                        <p className="font-semibold text-sm">{item.designName}</p>
-                        <p className="text-xs text-gray-600">{item.size} • {item.gender}</p>
-                        <p className="text-sm font-bold">₹{item.price} x {item.quantity}</p>
+                        <p className="font-semibold text-sm">{item.name}</p>
+                        <p className="text-xs text-gray-600">{item.size} • {item.color}</p>
+                        <p className="text-sm font-bold">₹{item.basePrice + item.printPrice} x {item.quantity}</p>
                       </div>
                     </div>
                   ))}

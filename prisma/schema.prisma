@@ -7,155 +7,217 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── NextAuth User (Google + Credentials) ─────────────────────────────────────
 model User {
-  id        String   @id @default(uuid())
-  clerkId   String?  @unique
-  email     String   @unique
-  name      String?
-  
+  id            String    @id @default(uuid())
+  clerkId       String?   @unique
+  email         String    @unique
+  password      String?
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  role          String    @default("user")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  designs   Design[]
-  orders    Order[]
+
+  designs  Design[]
+  orders   Order[]
+  accounts Account[]
+  sessions Session[]
+  wishlist WishlistItem[]
 }
 
+// ─── NextAuth Adapter Tables ───────────────────────────────────────────────────
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Admin (separate from regular users) ──────────────────────────────────────
 model Admin {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String
-  role          String    @default("admin")
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("admin")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([email])
 }
 
+// ─── Wishlist ─────────────────────────────────────────────────────────────────
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+// ─── Products ─────────────────────────────────────────────────────────────────
 model Product {
   id          String   @id @default(uuid())
   name        String
   description String?
-  
-  basePrice   Int
-  printPrice  Int
-  
-  category    String   @default("t-shirt")
-  gender      String[]
-  fits        String[]
-  
-  isActive    Boolean  @default(true)
-  isFeatured  Boolean  @default(false)
-  stockCount  Int      @default(100)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  variants    ProductVariant[]
-  orderItems  OrderItem[]
-  
+
+  basePrice  Int
+  printPrice Int
+
+  category String @default("t-shirt")
+  gender   String @default("unisex")
+  fit      String @default("regular")
+
+  isActive   Boolean @default(true)
+  isFeatured Boolean @default(false)
+  stockCount Int     @default(100)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+  wishlist   WishlistItem[]
+
   @@index([category, isActive])
 }
 
 model ProductVariant {
-  id          String   @id @default(uuid())
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  color       String
-  colorName   String
-  size        String
-  
-  frontImage  String
-  backImage   String
-  
-  stock       Int      @default(50)
-  sku         String   @unique
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  color     String
+  colorName String
+  size      String
+
+  frontImage String
+  backImage  String
+
+  stock Int    @default(50)
+  sku   String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([productId, color, size])
   @@index([productId, color, size])
 }
 
+// ─── Designs ──────────────────────────────────────────────────────────────────
 model Design {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  name          String   @default("Untitled Design")
-  designData    Json
-  
-  tshirtColor   String   @default("#000000")
-  tshirtGender  String   @default("men")
-  tshirtFit     String   @default("regular")
-  tshirtSize    String   @default("M")
-  
-  frontImage    String?
-  backImage     String?
-  
-  hasFront      Boolean  @default(true)
-  hasBack       Boolean  @default(false)
-  
-  isPublic      Boolean  @default(false)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  orderItems    OrderItem[]
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name       String @default("Untitled Design")
+  designData Json
+
+  tshirtColor  String @default("#000000")
+  tshirtGender String @default("men")
+  tshirtFit    String @default("regular")
+  tshirtSize   String @default("M")
+
+  frontImage String?
+  backImage  String?
+
+  hasFront Boolean @default(true)
+  hasBack  Boolean @default(false)
+
+  isPublic Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems OrderItem[]
 }
 
+// ─── Orders ───────────────────────────────────────────────────────────────────
 model Order {
-  id              String   @id @default(uuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
-  
-  orderNumber     String   @unique
-  status          String   @default("pending")
-  
-  totalAmount     Float
-  
-  customerName    String
-  customerEmail   String
-  customerPhone   String
-  
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  orderNumber String @unique
+  status      String @default("pending")
+
+  totalAmount Float
+
+  customerName  String
+  customerEmail String
+  customerPhone String
+
   shippingAddress String
   shippingCity    String
   shippingState   String
   shippingPincode String
-  
-  paymentStatus   String   @default("pending")
-  paymentMethod   String   @default("razorpay")
-  razorpayOrderId String?  @unique
+
+  paymentStatus     String  @default("pending")
+  paymentMethod     String  @default("razorpay")
+  razorpayOrderId   String? @unique
   razorpayPaymentId String?
   razorpaySignature String?
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  items           OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items OrderItem[]
 }
 
 model OrderItem {
-  id          String   @id @default(uuid())
-  orderId     String
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
-  productId   String?
-  product     Product? @relation(fields: [productId], references: [id])
-  
-  designId    String
-  design      Design   @relation(fields: [designId], references: [id])
-  
-  quantity    Int      @default(1)
-  price       Float
-  
-  size        String
-  color       String
-  gender      String
-  fit         String
-  
-  createdAt   DateTime @default(now())
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+
+  designId String
+  design   Design @relation(fields: [designId], references: [id])
+
+  quantity Int   @default(1)
+  price    Float
+
+  size   String
+  color  String
+  gender String
+  fit    String
+
+  createdAt DateTime @default(now())
 }

@@ -10,7 +10,8 @@ import {
   Pencil,
   Trash2,
   Eye,
-  Copy
+  Copy,
+  Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +53,7 @@ interface Product {
   isActive: boolean;
   isFeatured: boolean;
   stockCount: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   variants: any[];
 }
 
@@ -183,9 +185,9 @@ export default function AdminProductsPage() {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center overflow-hidden">
-                        {product.variants[0]?.frontImage ? (
+                        {(product.variants ?? [])[0]?.frontImage ? (
                           <img
-                            src={product.variants[0].frontImage}
+                            src={(product.variants ?? [])[0].frontImage}
                             alt={product.name}
                             className="w-full h-full object-cover"
                           />
@@ -209,10 +211,10 @@ export default function AdminProductsPage() {
                   </TableCell>
                   <TableCell>
                     <span className={`${product.stockCount > 10
-                        ? 'text-green-600'
-                        : product.stockCount > 0
-                          ? 'text-yellow-600'
-                          : 'text-red-600'
+                      ? 'text-green-600'
+                      : product.stockCount > 0
+                        ? 'text-yellow-600'
+                        : 'text-red-600'
                       }`}>
                       {product.stockCount}
                     </span>
