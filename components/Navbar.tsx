@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, ShoppingBag, Heart, User, Menu, X, LogOut, ChevronDown } from 'lucide-react';
+import { Search, ShoppingBag, Heart, User, Menu, X, LogOut, ChevronDown, Package } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useSession, signOut } from 'next-auth/react';
 
@@ -194,6 +194,13 @@ export default function Navbar() {
                         <p className="text-[10px] text-[#8B7355] truncate">{session.user?.email}</p>
                       </div>
                       <Link
+                        href="/orders"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-3 text-[11px] uppercase tracking-wider font-medium text-[#1C1C1C] hover:bg-[#F0EDE8] transition-colors"
+                      >
+                        <Package className="w-3.5 h-3.5" /> My Orders
+                      </Link>
+                      <Link
                         href="/wishlist"
                         onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-3 text-[11px] uppercase tracking-wider font-medium text-[#1C1C1C] hover:bg-[#F0EDE8] transition-colors"
@@ -343,6 +350,13 @@ export default function Navbar() {
             </nav>
 
             <div className="px-6 py-5 border-t border-[#E8E2D9] flex flex-col gap-3">
+              <Link
+                href="/orders"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2.5 text-sm text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
+              >
+                <Package className="w-4 h-4" /> My Orders
+              </Link>
               <Link
                 href="/wishlist"
                 onClick={() => setMobileMenuOpen(false)}

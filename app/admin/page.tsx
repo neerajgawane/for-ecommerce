@@ -9,50 +9,35 @@ import {
   DollarSign,
   TrendingUp,
   ArrowUpRight,
-  ArrowDownRight
 } from 'lucide-react';
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts';
 
-// Sample data - replace with real data from your API
-const salesData = [
-  { name: 'Jan', sales: 4000 },
-  { name: 'Feb', sales: 3000 },
-  { name: 'Mar', sales: 5000 },
-  { name: 'Apr', sales: 4500 },
-  { name: 'May', sales: 6000 },
-  { name: 'Jun', sales: 5500 },
-];
+interface RecentOrder {
+  id: string;
+  orderNumber: string;
+  customer: string;
+  product: string;
+  amount: number;
+  status: string;
+  paymentMethod: string;
+  createdAt: string;
+}
 
-const categoryData = [
-  { name: 'T-Shirts', value: 400 },
-  { name: 'Hoodies', value: 300 },
-  { name: 'Sweatshirts', value: 200 },
-  { name: 'Custom', value: 278 },
-];
-
-const COLORS = ['#000000', '#6b7280', '#9ca3af', '#d1d5db'];
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-700',
+  confirmed: 'bg-blue-100 text-blue-700',
+  processing: 'bg-purple-100 text-purple-700',
+  shipped: 'bg-indigo-100 text-indigo-700',
+  delivered: 'bg-green-100 text-green-700',
+  cancelled: 'bg-red-100 text-red-700',
+};
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalOrders: 0,
     totalProducts: 0,
-    conversionRate: 0,
   });
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -61,37 +46,27 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch real data from your APIs
-      // For now, using mock data
-      setStats({
-        totalRevenue: 45231,
-        totalOrders: 156,
-        totalProducts: 48,
-        conversionRate: 3.2,
-      });
-
-      // Mock recent orders
-      setRecentOrders([
-        {
-          id: '1',
-          customer: 'John Doe',
-          product: 'Custom T-Shirt',
-          amount: 499,
-          status: 'Completed',
-        },
-        {
-          id: '2',
-          customer: 'Jane Smith',
-          product: 'Hoodie Design',
-          amount: 899,
-          status: 'Processing',
-        },
-      ]);
+      const res = await fetch('/api/admin/stats');
+      if (res.ok) {
+        const data = await res.json();
+        setStats({
+          totalRevenue: data.totalRevenue,
+          totalOrders: data.totalOrders,
+          totalProducts: data.totalProducts,
+        });
+        setRecentOrders(data.recentOrders || []);
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'short', year: 'numeric',
+    });
   };
 
   if (loading) {
@@ -107,14 +82,13 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-gray-500">Welcome back! Here&apos;s what&apos;s happening with your store.</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -124,119 +98,34 @@ export default function AdminDashboard() {
             <div className="text-2xl font-bold">₹{stats.totalRevenue.toLocaleString()}</div>
             <p className="text-xs text-green-600 flex items-center mt-1">
               <ArrowUpRight className="h-3 w-3 mr-1" />
-              +20.1% from last month
+              From {stats.totalOrders} orders
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Orders</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
             <ShoppingCart className="h-4 w-4 text-gray-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalOrders}</div>
-            <p className="text-xs text-green-600 flex items-center mt-1">
-              <ArrowUpRight className="h-3 w-3 mr-1" />
-              +12% from last month
+            <p className="text-xs text-gray-500 mt-1">
+              All time orders
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Products</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Products</CardTitle>
             <Package className="h-4 w-4 text-gray-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalProducts}</div>
             <p className="text-xs text-gray-500 mt-1">
-              Active products in store
+              Products in store
             </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-gray-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.conversionRate}%</div>
-            <p className="text-xs text-red-600 flex items-center mt-1">
-              <ArrowDownRight className="h-3 w-3 mr-1" />
-              -2.5% from last month
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        {/* Sales Overview */}
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Sales Overview</CardTitle>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={salesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis
-                  dataKey="name"
-                  stroke="#888888"
-                  fontSize={12}
-                />
-                <YAxis
-                  stroke="#888888"
-                  fontSize={12}
-                  tickFormatter={(value) => `₹${value}`}
-                />
-                <Tooltip
-                  formatter={(value) => [`₹${value}`, 'Sales']}
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="sales"
-                  stroke="#000"
-                  strokeWidth={2}
-                  dot={{ fill: '#000', r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Category Distribution */}
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Sales by Category</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
@@ -244,28 +133,32 @@ export default function AdminDashboard() {
       {/* Recent Orders */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Orders</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5" /> Recent Orders
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {recentOrders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">{order.customer}</p>
-                  <p className="text-xs text-gray-500">{order.product}</p>
+          {recentOrders.length === 0 ? (
+            <p className="text-gray-500 text-sm py-4 text-center">No orders yet. Orders will appear here once customers start placing them.</p>
+          ) : (
+            <div className="space-y-4">
+              {recentOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-0">
+                  <div>
+                    <p className="text-sm font-semibold">{order.orderNumber}</p>
+                    <p className="text-xs text-gray-500">{order.customer}</p>
+                    <p className="text-xs text-gray-400">{order.product} · {formatDate(order.createdAt)}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold">₹{order.amount.toLocaleString()}</span>
+                    <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded-full ${STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-700'}`}>
+                      {order.status}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-semibold">₹{order.amount}</span>
-                  <span className={`text-xs px-2 py-1 rounded-full ${order.status === 'Completed'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                    {order.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -2,8 +2,53 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 
+// ── Input sanitization ────────────────────────────────────────────────────────
+function sanitize(s: string): string {
+  return s.trim().replace(/[<>]/g, '');
+}
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isStrongPassword(password: string): boolean {
+  // Min 8 chars, at least 1 uppercase, 1 lowercase, 1 number
+  return (
+    password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /[0-9]/.test(password)
+  );
+}
+
+// ── Simple in-memory rate limiter ─────────────────────────────────────────────
+const signupAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const record = signupAttempts.get(ip);
+
+  if (!record || record.resetAt < now) {
+    signupAttempts.set(ip, { count: 1, resetAt: now + 60_000 }); // 1 min window
+    return false;
+  }
+
+  record.count++;
+  if (record.count > 5) return true; // max 5 signups per minute per IP
+  return false;
+}
+
 export async function POST(req: NextRequest) {
   try {
+    // ── Rate limiting ─────────────────────────────────────────────────────────
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || req.headers.get('x-real-ip') || 'unknown';
+    if (isRateLimited(ip)) {
+      return NextResponse.json(
+        { error: 'Too many signup attempts. Please try again in a minute.' },
+        { status: 429 }
+      );
+    }
+
     const { name, email, password } = await req.json();
 
     // ── Validate inputs ─────────────────────────────────────────────────────────
@@ -14,16 +59,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (password.length < 8) {
+    const cleanName = sanitize(name);
+    const cleanEmail = email.toLowerCase().trim();
+
+    if (cleanName.length < 2 || cleanName.length > 100) {
       return NextResponse.json(
-        { error: 'Password must be at least 8 characters.' },
+        { error: 'Name must be between 2 and 100 characters.' },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidEmail(cleanEmail)) {
+      return NextResponse.json(
+        { error: 'Please enter a valid email address.' },
+        { status: 400 }
+      );
+    }
+
+    if (!isStrongPassword(password)) {
+      return NextResponse.json(
+        { error: 'Password must be at least 8 characters with uppercase, lowercase, and a number.' },
         { status: 400 }
       );
     }
 
     // ── Check for existing user ─────────────────────────────────────────────────
     const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: cleanEmail },
     });
 
     if (existingUser) {
@@ -41,7 +103,7 @@ export async function POST(req: NextRequest) {
         where: { id: existingUser.id },
         data: {
           password: hashedPassword,
-          name: existingUser.name || name.trim(), // keep existing name if set
+          name: existingUser.name || cleanName,
         },
       });
 
@@ -56,8 +118,8 @@ export async function POST(req: NextRequest) {
 
     const user = await prisma.user.create({
       data: {
-        name: name.trim(),
-        email: email.toLowerCase().trim(),
+        name: cleanName,
+        email: cleanEmail,
         password: hashedPassword,
         role: 'user',
       },
