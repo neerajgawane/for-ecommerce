@@ -207,7 +207,7 @@ export default function AdminProductsPage() {
                   </TableCell>
                   <TableCell className="capitalize">{product.category}</TableCell>
                   <TableCell>
-                    ₹{product.basePrice + product.printPrice}
+                    <span className="font-semibold">₹{(product.basePrice + product.printPrice).toLocaleString()}</span>
                   </TableCell>
                   <TableCell>
                     <span className={`${product.stockCount > 10

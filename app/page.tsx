@@ -28,29 +28,6 @@ export default function HomePage() {
     fetchProducts();
   }, []);
 
-  const categories = [
-    {
-      label: 'FOR HIM',
-      image: '/for-him-model.png',
-      link: '/products?gender=men',
-    },
-    {
-      label: 'FOR HER',
-      image: '/for-her-model.png',
-      link: '/products?gender=women',
-    },
-    {
-      label: 'OVERSIZED',
-      image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=600&h=800&fit=crop',
-      link: '/products?fit=oversized',
-    },
-    {
-      label: 'CUSTOM',
-      image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=600&h=800&fit=crop',
-      link: '/studio',
-    },
-  ];
-
   return (
     <div className="min-h-screen" style={{ background: '#FAF8F5' }}>
 
@@ -67,56 +44,6 @@ export default function HomePage() {
           ))}
         </div>
       </div>
-
-      {/* ── CATEGORY GRID ─────────────────────────────────────────── */}
-      <section className="py-20 px-5 lg:px-10 max-w-[1440px] mx-auto">
-        <div className="flex items-end justify-between mb-10">
-          <div>
-            <p className="text-[11px] tracking-[0.25em] uppercase text-[#8B7355] mb-2 font-medium">Browse</p>
-            <h2
-              className="text-3xl lg:text-4xl text-[#1C1C1C] leading-tight"
-              style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif", fontWeight: 500 }}
-            >
-              Shop by Category
-            </h2>
-          </div>
-          <Link
-            href="/products"
-            className="hidden md:flex items-center gap-2 text-[11px] tracking-[0.18em] uppercase font-semibold text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
-          >
-            View All <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-          {categories.map((cat) => (
-            <Link
-              key={cat.label}
-              href={cat.link}
-              className="group relative aspect-[3/4] overflow-hidden rounded-sm"
-            >
-              <img
-                src={cat.image}
-                alt={cat.label}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#1C1C1C]/65 via-transparent to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-5 lg:p-6">
-                <p className="text-[11px] tracking-[0.25em] uppercase text-[#FAF8F5]/75 mb-1 font-medium">Collection</p>
-                <h3
-                  className="text-xl lg:text-2xl text-[#FAF8F5] leading-tight mb-3"
-                  style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif", fontWeight: 500 }}
-                >
-                  {cat.label}
-                </h3>
-                <div className="flex items-center gap-1.5 text-[#FAF8F5]/80 text-[11px] tracking-widest uppercase font-semibold opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300">
-                  Explore <ArrowRight className="w-3 h-3" />
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
 
       {/* ── FEATURED PRODUCTS ─────────────────────────────────────── */}
       {featuredProducts.length > 0 && (
@@ -192,27 +119,6 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── STATS ─────────────────────────────────────────────────── */}
-      <section className="py-16 px-5 lg:px-10 bg-[#1C1C1C]">
-        <div className="max-w-[1440px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-          {[
-            { val: '10,000+', label: 'Designs Created' },
-            { val: '5,000+', label: 'Happy Customers' },
-            { val: '4.8 ★', label: 'Average Rating' },
-          ].map((s) => (
-            <div key={s.label}>
-              <div
-                className="text-4xl lg:text-5xl text-[#FAF8F5] mb-2"
-                style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif", fontWeight: 500 }}
-              >
-                {s.val}
-              </div>
-              <div className="text-[11px] tracking-[0.25em] uppercase text-[#8B7355] font-medium">{s.label}</div>
-            </div>
-          ))}
         </div>
       </section>
 

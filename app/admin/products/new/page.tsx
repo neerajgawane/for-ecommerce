@@ -46,8 +46,8 @@ export default function NewProductPage() {
   // Form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [basePrice, setBasePrice] = useState('');
-  const [printPrice, setPrintPrice] = useState('');
+  const [sellingPrice, setSellingPrice] = useState('');
+  const [costPrice, setCostPrice] = useState('');
   const [category, setCategory] = useState('t-shirt');
   const [selectedGender, setSelectedGender] = useState('men');
   const [selectedFit, setSelectedFit] = useState('regular');
@@ -167,8 +167,7 @@ export default function NewProductPage() {
   const validateStep = (s: number) => {
     if (s === 1) {
       if (!name.trim()) return 'Product name is required';
-      if (!basePrice || parseInt(basePrice) <= 0) return 'Base price is required';
-      if (!printPrice) return 'Print price is required';
+      if (!sellingPrice || parseInt(sellingPrice) <= 0) return 'Selling price is required';
       return null;
     }
     if (s === 2) {
@@ -202,8 +201,8 @@ export default function NewProductPage() {
       const productData = {
         name,
         description: description || null,
-        basePrice: parseInt(basePrice),
-        printPrice: parseInt(printPrice),
+        basePrice: parseInt(sellingPrice),
+        printPrice: 0,
         category: category.toLowerCase(),
         gender: selectedGender,
         fit: selectedFit,
@@ -301,26 +300,28 @@ export default function NewProductPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Base Price (₹) *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Selling Price (₹) *</label>
                     <input
                       type="number"
-                      value={basePrice}
-                      onChange={(e) => setBasePrice(e.target.value)}
+                      value={sellingPrice}
+                      onChange={(e) => setSellingPrice(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
                       placeholder="799"
-                      min="0"
+                      min="1"
                     />
+                    <p className="text-xs text-gray-400 mt-1">The price customers will see</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Print Price (₹) *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price (₹)</label>
                     <input
                       type="number"
-                      value={printPrice}
-                      onChange={(e) => setPrintPrice(e.target.value)}
+                      value={costPrice}
+                      onChange={(e) => setCostPrice(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-                      placeholder="200"
+                      placeholder="400"
                       min="0"
                     />
+                    <p className="text-xs text-gray-400 mt-1">Optional — for your profit tracking</p>
                   </div>
                 </div>
 
@@ -761,9 +762,9 @@ export default function NewProductPage() {
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <span className="text-xs uppercase text-gray-400 tracking-wider">Total Price</span>
-                    <p className="font-bold text-lg">₹{(parseInt(basePrice) || 0) + (parseInt(printPrice) || 0)}</p>
-                    <p className="text-[10px] text-gray-400">Base ₹{basePrice} + Print ₹{printPrice}</p>
+                    <span className="text-xs uppercase text-gray-400 tracking-wider">Selling Price</span>
+                    <p className="font-bold text-lg">₹{parseInt(sellingPrice) || 0}</p>
+                    {costPrice && <p className="text-[10px] text-gray-400">Cost: ₹{costPrice} · Profit: ₹{(parseInt(sellingPrice) || 0) - (parseInt(costPrice) || 0)}</p>}
                   </div>
                   <div>
                     <span className="text-xs uppercase text-gray-400 tracking-wider">Gender</span>

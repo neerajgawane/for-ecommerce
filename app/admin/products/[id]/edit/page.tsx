@@ -49,8 +49,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   // Editable fields
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [basePrice, setBasePrice] = useState('');
-  const [printPrice, setPrintPrice] = useState('');
+  const [sellingPrice, setSellingPrice] = useState('');
+  const [costPrice, setCostPrice] = useState('');
   const [category, setCategory] = useState('t-shirt');
   const [selectedGender, setSelectedGender] = useState('');
   const [selectedFit, setSelectedFit] = useState('');
@@ -79,8 +79,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         setProduct(p);
         setName(p.name);
         setDescription(p.description || '');
-        setBasePrice(String(p.basePrice));
-        setPrintPrice(String(p.printPrice));
+        // Backward compat: selling price = basePrice + printPrice
+        setSellingPrice(String(p.basePrice + (p.printPrice || 0)));
+        setCostPrice('');
         setCategory(p.category);
         setSelectedGender(p.gender || 'unisex');
         setSelectedFit(p.fit || 'regular');
@@ -127,14 +128,21 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     setSaving(true);
 
     try {
+      const parsedPrice = parseInt(sellingPrice);
+      if (!parsedPrice || parsedPrice <= 0) {
+        setError('Please enter a valid selling price');
+        setSaving(false);
+        return;
+      }
+
       const res = await fetch(`/api/admin/products/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
           description: description || null,
-          basePrice: parseInt(basePrice),
-          printPrice: parseInt(printPrice),
+          basePrice: parsedPrice,
+          printPrice: 0,
           category,
           gender: selectedGender,
           fit: selectedFit,
@@ -154,8 +162,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       const data = await res.json();
       if (res.ok) {
         setSuccess('Product updated successfully!');
-        setProduct(data.product);
-        setVariants(data.product.variants);
+        const updatedProduct = data.product;
+        setProduct(updatedProduct);
+        setVariants(updatedProduct.variants);
+        // Sync the selling price from the saved data
+        setSellingPrice(String(updatedProduct.basePrice + (updatedProduct.printPrice || 0)));
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError(data.error || 'Failed to update product');
@@ -240,12 +251,14 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Base Price (₹)</label>
-                  <input type="number" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent" min="0" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Selling Price (₹) *</label>
+                  <input type="number" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent" min="1" />
+                  <p className="text-xs text-gray-400 mt-1">The price customers will see</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Print Price (₹)</label>
-                  <input type="number" value={printPrice} onChange={(e) => setPrintPrice(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent" min="0" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price (₹)</label>
+                  <input type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent" min="0" />
+                  <p className="text-xs text-gray-400 mt-1">Optional — for profit tracking</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
