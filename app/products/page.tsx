@@ -55,25 +55,23 @@ function FilterPill({
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
 function ProductCard({ product }: { product: Product }) {
-  const [hovered, setHovered] = useState(false);
   const totalPrice = product.basePrice + product.printPrice;
   const frontImage = product.variants?.[0]?.frontImage;
-  const backImage = product.variants?.[0]?.backImage;
   const isValidImg = (u?: string) => u && u.trim() !== '' && !u.endsWith('placeholder.png');
   const imgSrc = isValidImg(frontImage) ? frontImage : '';
-  const hoverSrc = isValidImg(backImage) ? backImage : imgSrc;
+
+  // Get unique colors for swatch dots
+  const uniqueColors = product.variants
+    ? Array.from(new Map(product.variants.map((v) => [v.color, v])).values()).slice(0, 5)
+    : [];
   const colorCount = product.variants ? new Set(product.variants.map((v) => v.color)).size : 0;
 
   return (
     <Link href={`/products/${product.id}`} className="group block">
-      <div
-        className="relative aspect-[3/4] bg-[#F0EDE8] overflow-hidden mb-4"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
+      <div className="relative aspect-[3/4] bg-[#F0EDE8] overflow-hidden mb-4">
         {imgSrc ? (
           <img
-            src={hovered && hoverSrc && hoverSrc !== imgSrc ? hoverSrc : imgSrc}
+            src={imgSrc}
             alt={product.name}
             className="w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03]"
           />
@@ -118,7 +116,19 @@ function ProductCard({ product }: { product: Product }) {
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-[#1C1C1C]">₹{totalPrice.toLocaleString()}</span>
           {colorCount > 1 && (
-            <span className="text-[10px] text-[#8B7355] tracking-wide">{colorCount} colours</span>
+            <div className="flex items-center gap-1">
+              {uniqueColors.slice(0, 4).map((v) => (
+                <div
+                  key={v.color}
+                  className="w-3 h-3 rounded-full border border-[#E0DCD6]"
+                  style={{ backgroundColor: v.color }}
+                  title={v.colorName}
+                />
+              ))}
+              {colorCount > 4 && (
+                <span className="text-[10px] text-[#8B7355]">+{colorCount - 4}</span>
+              )}
+            </div>
           )}
         </div>
       </div>

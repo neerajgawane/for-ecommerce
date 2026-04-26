@@ -256,7 +256,7 @@ export default function DesignStudio() {
     link.download = `for-design-${designSide}.png`;
     link.href = fabricCanvasRef.current.toDataURL({
       format: 'png', quality: 1,
-      multiplier: 0
+      multiplier: 2
     });
     link.click();
     showNotification('Design downloaded successfully!');
@@ -271,29 +271,23 @@ export default function DesignStudio() {
       const designData = fabricCanvasRef.current.toJSON();
       const imageData = fabricCanvasRef.current.toDataURL({
         format: 'png', quality: 1,
-        multiplier: 0
+        multiplier: 2
       });
 
-      // TODO: Actually save to database via API
-      // const response = await fetch('/api/designs', {
-      //   method: 'POST',
-      //   body: JSON.stringify({
-      //     designData,
-      //     imageData,
-      //     tshirtColor,
-      //     tshirtSize,
-      //     tshirtGender,
-      //     tshirtFit,
-      //     designSide
-      //   })
-      // });
+      // Save design locally (DB persistence via /api/designs coming soon)
+      const savedDesign = {
+        designData,
+        imageData,
+        tshirtColor,
+        tshirtSize,
+        tshirtGender,
+        tshirtFit,
+        designSide,
+        savedAt: new Date().toISOString(),
+      };
 
-      console.log('Saving design to database:', { designData, imageData });
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      showNotification('Design saved to your account!');
+      localStorage.setItem('for-saved-design', JSON.stringify(savedDesign));
+      showNotification('Design saved locally!');
     } catch (error) {
       console.error('Save error:', error);
       showNotification('Failed to save design');
@@ -320,7 +314,7 @@ export default function DesignStudio() {
     try {
       const designImage = fabricCanvasRef.current.toDataURL({
         format: 'png', quality: 1,
-        multiplier: 0
+        multiplier: 2
       });
       const price = calculatePrice();
 
@@ -366,7 +360,7 @@ export default function DesignStudio() {
     try {
       const designImage = fabricCanvasRef.current.toDataURL({
         format: 'png', quality: 1,
-        multiplier: 0
+        multiplier: 2
       });
       const price = calculatePrice();
 
