@@ -6,8 +6,34 @@ import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
 import {
   Upload, Type, Trash2, Download, Save, ShoppingCart, Eye, Palette,
-  Undo, Redo, RotateCcw, Plus, Minus, Zap, Check
+  Undo, Redo, RotateCcw, Plus, Minus, Zap, Check, Ruler
 } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+
+// ── Print area pricing tiers ──────────────────────────────────────────────────
+interface PrintTier {
+  name: string;
+  maxWidth: number;  // cm
+  maxHeight: number; // cm
+  price: number;     // INR
+}
+
+const PRINT_TIERS: PrintTier[] = [
+  { name: 'Small',      maxWidth: 10, maxHeight: 10, price: 50  },
+  { name: 'Medium',     maxWidth: 20, maxHeight: 20, price: 100 },
+  { name: 'Large',      maxWidth: 30, maxHeight: 30, price: 150 },
+  { name: 'Full Chest', maxWidth: 40, maxHeight: 40, price: 200 },
+];
+
+const BASE_PRICES: Record<string, number> = {
+  'regular':  399,
+  'oversized': 499,
+};
+
+const BACK_PRINT_SURCHARGE = 100;
+
+// Canvas pixels → cm conversion (based on 280px canvas ≈ 35cm real print area)
+const PIXELS_TO_CM = 35 / 280;
 
 interface CanvasHistory {
   state: Record<string, unknown>;
@@ -22,6 +48,7 @@ export default function DesignStudio() {
   const historyStepRef = useRef<number>(-1);
 
   const addItem = useCartStore((state) => state.addItem);
+  const { data: session } = useSession();
 
   const [tshirtColor, setTshirtColor] = useState('#FFFFFF');
   const [tshirtGender, setTshirtGender] = useState('men');
@@ -39,21 +66,54 @@ export default function DesignStudio() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [savedDesignId, setSavedDesignId] = useState<string | null>(null);
+
+  // Dynamic print size state
+  const [printSize, setPrintSize] = useState<{
+    widthCm: number;
+    heightCm: number;
+    tier: PrintTier;
+  } | null>(null);
 
   // Toast notification state
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  const colors = [
-    { name: 'Black', hex: '#000000' },
-    { name: 'White', hex: '#FFFFFF' },
-    { name: 'Navy', hex: '#1e3a8a' },
-    { name: 'Gray', hex: '#6b7280' },
-    { name: 'Pink', hex: '#ec4899' },
-    { name: 'Blue', hex: '#3b82f6' },
-    { name: 'Green', hex: '#10b981' },
-    { name: 'Purple', hex: '#a855f7' },
+  // ── Dual-side design state ────────────────────────────────────────────────
+  const frontDataRef = useRef<{ json: Record<string, unknown> | null; designImage: string | null }>({
+    json: null, designImage: null,
+  });
+  const backDataRef = useRef<{ json: Record<string, unknown> | null; designImage: string | null }>({
+    json: null, designImage: null,
+  });
+  const [hasFrontDesign, setHasFrontDesign] = useState(false);
+  const [hasBackDesign, setHasBackDesign] = useState(false);
+
+  // Per-side undo/redo history
+  const frontHistoryRef = useRef<CanvasHistory[]>([]);
+  const frontHistoryStepRef = useRef<number>(-1);
+  const backHistoryRef = useRef<CanvasHistory[]>([]);
+  const backHistoryStepRef = useRef<number>(-1);
+  const isSwitchingRef = useRef(false);
+
+  // All colors use the clean white mockup + CSS mask/blend coloring
+  // This ensures flat, ironed appearance and proper front/back switching
+  const colors: { name: string; hex: string }[] = [
+    { name: 'White',      hex: '#FFFFFF' },
+    { name: 'Black',      hex: '#000000' },
+    { name: 'Navy',       hex: '#1e3a8a' },
+    { name: 'Charcoal',   hex: '#374151' },
+    { name: 'Maroon',     hex: '#7f1d1d' },
+    { name: 'Olive',      hex: '#4d7c0f' },
+    { name: 'Sky Blue',   hex: '#38bdf8' },
+    { name: 'Blush Pink', hex: '#fda4af' },
+    { name: 'Lavender',   hex: '#c4b5fd' },
+    { name: 'Mustard',    hex: '#eab308' },
+    { name: 'Coral',      hex: '#fb7185' },
   ];
+
+  // Get the base white mockup path for current side
+  const getMockupSrc = () => `/mockups/tshirt-white-${designSide}.png`;
 
   const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
@@ -68,20 +128,6 @@ export default function DesignStudio() {
     'Verdana'
   ];
 
-  const getColorFilter = () => {
-    const filters: Record<string, string> = {
-      '#000000': 'brightness(0) saturate(100%)',
-      '#FFFFFF': 'brightness(100%) saturate(0%)',
-      '#1e3a8a': 'brightness(0.35) saturate(200%) hue-rotate(220deg)',
-      '#6b7280': 'brightness(0.5) saturate(0%)',
-      '#ec4899': 'brightness(1.1) saturate(200%) hue-rotate(330deg)',
-      '#3b82f6': 'brightness(0.85) saturate(250%) hue-rotate(210deg)',
-      '#10b981': 'brightness(0.9) saturate(200%) hue-rotate(145deg)',
-      '#a855f7': 'brightness(1) saturate(200%) hue-rotate(270deg)',
-    };
-    return filters[tshirtColor] || 'none';
-  };
-
   // Show toast notification
   const showNotification = (message: string) => {
     setToastMessage(message);
@@ -90,13 +136,75 @@ export default function DesignStudio() {
   };
 
   const saveToHistory = () => {
-    if (!fabricCanvasRef.current) return;
+    if (!fabricCanvasRef.current || isSwitchingRef.current) return;
 
     const json = fabricCanvasRef.current.toJSON();
     historyStepRef.current += 1;
     historyRef.current = historyRef.current.slice(0, historyStepRef.current);
     historyRef.current.push({ state: json });
     setCanUpdate(!canUpdate);
+  };
+
+  // ── Switch between front/back sides ─────────────────────────────────────
+  const switchSide = (newSide: 'front' | 'back') => {
+    if (newSide === designSide || !fabricCanvasRef.current) return;
+    isSwitchingRef.current = true;
+
+    const canvas = fabricCanvasRef.current;
+    const currentJSON = canvas.toJSON();
+    const hasObjects = canvas.getObjects().length > 0;
+    const currentDesignImage = hasObjects
+      ? canvas.toDataURL({ format: 'png', quality: 1, multiplier: 2 })
+      : null;
+
+    // Save current side
+    if (designSide === 'front') {
+      frontDataRef.current = { json: currentJSON, designImage: currentDesignImage };
+      setHasFrontDesign(hasObjects);
+      frontHistoryRef.current = [...historyRef.current];
+      frontHistoryStepRef.current = historyStepRef.current;
+    } else {
+      backDataRef.current = { json: currentJSON, designImage: currentDesignImage };
+      setHasBackDesign(hasObjects);
+      backHistoryRef.current = [...historyRef.current];
+      backHistoryStepRef.current = historyStepRef.current;
+    }
+
+    // Clear selection
+    canvas.discardActiveObject();
+
+    // Load target side
+    const targetData = newSide === 'front' ? frontDataRef.current : backDataRef.current;
+
+    if (targetData.json) {
+      canvas.loadFromJSON(targetData.json, () => {
+        canvas.requestRenderAll();
+        canvas.calcOffset();
+        isSwitchingRef.current = false;
+        // Fallback re-render to handle async font loading
+        setTimeout(() => {
+          canvas.requestRenderAll();
+        }, 100);
+      });
+    } else {
+      canvas.clear();
+      canvas.backgroundColor = 'transparent';
+      canvas.requestRenderAll();
+      isSwitchingRef.current = false;
+    }
+
+    // Restore history for target side
+    if (newSide === 'front') {
+      historyRef.current = [...frontHistoryRef.current];
+      historyStepRef.current = frontHistoryStepRef.current;
+    } else {
+      historyRef.current = [...backHistoryRef.current];
+      historyStepRef.current = backHistoryStepRef.current;
+    }
+
+    setDesignSide(newSide);
+    setSelectedObject(null);
+    setCanUpdate(prev => !prev);
   };
 
   useEffect(() => {
@@ -139,6 +247,19 @@ export default function DesignStudio() {
     canvas.on('object:added', saveToHistory);
     canvas.on('object:modified', saveToHistory);
     canvas.on('object:removed', saveToHistory);
+
+    // Object containment — keep designs within canvas bounds
+    canvas.on('object:moving', (e) => {
+      const obj = e.target;
+      if (!obj) return;
+      const bound = obj.getBoundingRect();
+      if (bound.left < 0) obj.set('left', (obj.left ?? 0) - bound.left);
+      if (bound.top < 0) obj.set('top', (obj.top ?? 0) - bound.top);
+      if (bound.left + bound.width > 280)
+        obj.set('left', (obj.left ?? 0) - (bound.left + bound.width - 280));
+      if (bound.top + bound.height > 350)
+        obj.set('top', (obj.top ?? 0) - (bound.top + bound.height - 350));
+    });
 
     return () => {
       canvas.dispose();
@@ -248,6 +369,14 @@ export default function DesignStudio() {
     fabricCanvasRef.current.clear();
     fabricCanvasRef.current.backgroundColor = 'transparent';
     fabricCanvasRef.current.renderAll();
+    // Update design flag for current side
+    if (designSide === 'front') {
+      setHasFrontDesign(false);
+      frontDataRef.current = { json: null, designImage: null };
+    } else {
+      setHasBackDesign(false);
+      backDataRef.current = { json: null, designImage: null };
+    }
   };
 
   const downloadDesign = () => {
@@ -262,9 +391,54 @@ export default function DesignStudio() {
     showNotification('Design downloaded successfully!');
   };
 
-  // SAVE DESIGN - Saves to database for later editing
+  // ── Calculate print size from canvas objects ──────────────────────────────
+  const recalcPrintSize = () => {
+    if (!fabricCanvasRef.current) {
+      setPrintSize(null);
+      return;
+    }
+
+    const objects = fabricCanvasRef.current.getObjects();
+    if (objects.length === 0) {
+      setPrintSize(null);
+      return;
+    }
+
+    // Get bounding box of ALL design objects
+    let minLeft = Infinity, minTop = Infinity, maxRight = -Infinity, maxBottom = -Infinity;
+    for (const obj of objects) {
+      const bound = obj.getBoundingRect();
+      minLeft = Math.min(minLeft, bound.left);
+      minTop = Math.min(minTop, bound.top);
+      maxRight = Math.max(maxRight, bound.left + bound.width);
+      maxBottom = Math.max(maxBottom, bound.top + bound.height);
+    }
+
+    const widthCm = (maxRight - minLeft) * PIXELS_TO_CM;
+    const heightCm = (maxBottom - minTop) * PIXELS_TO_CM;
+
+    // Find matching tier (smallest tier that fits the design)
+    const tier = PRINT_TIERS.find(
+      (t) => widthCm <= t.maxWidth && heightCm <= t.maxHeight
+    ) || PRINT_TIERS[PRINT_TIERS.length - 1]; // Default to largest
+
+    setPrintSize({ widthCm, heightCm, tier });
+  };
+
+  // Recalculate on every canvas change
+  useEffect(() => {
+    recalcPrintSize();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canUpdate]);
+
+  // ── SAVE DESIGN — Persists to database ────────────────────────────────────
   const saveDesign = async () => {
     if (!fabricCanvasRef.current) return;
+
+    if (!session?.user) {
+      showNotification('Please sign in to save designs');
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -274,32 +448,179 @@ export default function DesignStudio() {
         multiplier: 2
       });
 
-      // Save design locally (DB persistence via /api/designs coming soon)
-      const savedDesign = {
+      const payload = {
+        name: `Custom ${tshirtGender} T-Shirt`,
         designData,
-        imageData,
         tshirtColor,
-        tshirtSize,
         tshirtGender,
         tshirtFit,
-        designSide,
-        savedAt: new Date().toISOString(),
+        tshirtSize,
+        frontImage: designSide === 'front' ? imageData : undefined,
+        backImage: designSide === 'back' ? imageData : undefined,
+        hasFront: designSide === 'front',
+        hasBack: designSide === 'back',
+        isPublic: false,
       };
 
-      localStorage.setItem('for-saved-design', JSON.stringify(savedDesign));
-      showNotification('Design saved locally!');
+      let res;
+      if (savedDesignId) {
+        // Update existing design
+        res = await fetch(`/api/designs/${savedDesignId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        // Create new design
+        res = await fetch('/api/designs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Save failed');
+      }
+
+      const data = await res.json();
+      if (data.id) setSavedDesignId(data.id);
+
+      showNotification(savedDesignId ? 'Design updated! ✓' : 'Design saved! ✓');
     } catch (error) {
       console.error('Save error:', error);
-      showNotification('Failed to save design');
+      // Fallback to localStorage
+      const fallback = {
+        designData: fabricCanvasRef.current.toJSON(),
+        tshirtColor, tshirtSize, tshirtGender, tshirtFit, designSide,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem('for-saved-design', JSON.stringify(fallback));
+      showNotification('Saved locally (sign in to sync)');
     } finally {
       setIsSaving(false);
     }
   };
 
+  // ── Price calculation (both sides) ──────────────────────────────────────
+  const getBasePrice = () => BASE_PRICES[tshirtFit] || 399;
+  const getPrintPrice = () => printSize?.tier.price ?? 0;
+
+  // Check if current side has design (live canvas)
+  const currentSideHasDesign = () => {
+    if (!fabricCanvasRef.current) return false;
+    return fabricCanvasRef.current.getObjects().length > 0;
+  };
+
   const calculatePrice = () => {
-    let price = 399;
-    if (designSide === 'front' || designSide === 'back') price += 100;
-    return price;
+    const base = getBasePrice();
+    const currentPrint = getPrintPrice(); // from live canvas
+    const otherSideHasDesign = designSide === 'front' ? hasBackDesign : hasFrontDesign;
+    // Surcharge for printing on both sides
+    const bothSides = currentSideHasDesign() && otherSideHasDesign ? BACK_PRINT_SURCHARGE : 0;
+    return base + currentPrint + bothSides;
+  };
+
+  // ── Generate composite preview (t-shirt + design) for cart/checkout ───────
+  const generateCompositePreview = async (
+    side: 'front' | 'back',
+    savedDesignImageSrc?: string | null
+  ): Promise<string | null> => {
+    const mockupPath = `/mockups/tshirt-white-${side}.png`;
+
+    // Get the design image for this side
+    let designDataUrl: string | null = null;
+    if (side === designSide && fabricCanvasRef.current) {
+      // Current side — use live canvas
+      const objects = fabricCanvasRef.current.getObjects();
+      if (objects.length > 0) {
+        designDataUrl = fabricCanvasRef.current.toDataURL({
+          format: 'png', quality: 1, multiplier: 2
+        });
+      }
+    } else if (savedDesignImageSrc) {
+      // Other side — use saved design image
+      designDataUrl = savedDesignImageSrc;
+    }
+
+    if (!designDataUrl) return null; // No design on this side
+
+    const previewCanvas = document.createElement('canvas');
+    const ctx = previewCanvas.getContext('2d')!;
+    const W = 400, H = 500;
+    previewCanvas.width = W;
+    previewCanvas.height = H;
+
+    // Light background
+    ctx.fillStyle = '#F0EDE8';
+    ctx.fillRect(0, 0, W, H);
+
+    // Load the white mockup image
+    const mockupImg = new Image();
+    mockupImg.crossOrigin = 'anonymous';
+    mockupImg.src = mockupPath;
+    await new Promise<void>((resolve) => {
+      mockupImg.onload = () => resolve();
+      mockupImg.onerror = () => resolve();
+    });
+
+    if (mockupImg.complete && mockupImg.naturalWidth > 0) {
+      // Create colored shirt silhouette
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d')!;
+      tempCanvas.width = W;
+      tempCanvas.height = H;
+      tempCtx.fillStyle = tshirtColor;
+      tempCtx.fillRect(0, 0, W, H);
+      tempCtx.globalCompositeOperation = 'destination-in';
+      tempCtx.drawImage(mockupImg, 0, 0, W, H);
+      ctx.drawImage(tempCanvas, 0, 0);
+
+      // Add mockup texture with multiply
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalAlpha = 0.92;
+      ctx.drawImage(mockupImg, 0, 0, W, H);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+
+    // Overlay the design
+    const designImg = new Image();
+    designImg.src = designDataUrl;
+    await new Promise<void>((resolve) => {
+      designImg.onload = () => resolve();
+      designImg.onerror = () => resolve();
+    });
+
+    if (designImg.complete && designImg.naturalWidth > 0) {
+      const printLeft = W * 0.19;
+      const printTop = H * 0.22;
+      const printWidth = W * 0.62;
+      const printHeight = H * 0.55;
+      ctx.drawImage(designImg, printLeft, printTop, printWidth, printHeight);
+    }
+
+    return previewCanvas.toDataURL('image/jpeg', 0.85);
+  };
+
+  // ── Helper: sync current side state before cart operations ────────────────
+  const syncCurrentSideState = () => {
+    if (!fabricCanvasRef.current) return;
+    const canvas = fabricCanvasRef.current;
+    const hasObjects = canvas.getObjects().length > 0;
+    const currentJSON = canvas.toJSON();
+    const currentDesignImage = hasObjects
+      ? canvas.toDataURL({ format: 'png', quality: 1, multiplier: 2 })
+      : null;
+
+    if (designSide === 'front') {
+      frontDataRef.current = { json: currentJSON, designImage: currentDesignImage };
+      setHasFrontDesign(hasObjects);
+    } else {
+      backDataRef.current = { json: currentJSON, designImage: currentDesignImage };
+      setHasBackDesign(hasObjects);
+    }
   };
 
   // ADD TO CART - Shows toast notification, stays on page
@@ -309,36 +630,56 @@ export default function DesignStudio() {
       return;
     }
 
+    // Sync current side state
+    syncCurrentSideState();
+
+    const frontHas = designSide === 'front'
+      ? fabricCanvasRef.current.getObjects().length > 0
+      : hasFrontDesign;
+    const backHas = designSide === 'back'
+      ? fabricCanvasRef.current.getObjects().length > 0
+      : hasBackDesign;
+
+    if (!frontHas && !backHas) {
+      showNotification('Please add a design to at least one side!');
+      return;
+    }
+
     setIsAddingToCart(true);
 
     try {
-      const designImage = fabricCanvasRef.current.toDataURL({
-        format: 'png', quality: 1,
-        multiplier: 2
-      });
-      const price = calculatePrice();
+      // Generate composite previews for designed sides
+      const frontPreview = await generateCompositePreview('front', frontDataRef.current.designImage);
+      const backPreview = await generateCompositePreview('back', backDataRef.current.designImage);
+
+      const basePrice = getBasePrice();
+      const printPrice = getPrintPrice();
+      const bothSides = frontHas && backHas ? BACK_PRINT_SURCHARGE : 0;
 
       addItem({
         id: `custom-${Date.now()}`,
         productId: `custom-design`,
         name: `Custom ${tshirtGender} T-Shirt`,
-        image: designImage,
-        basePrice: price,
-        printPrice: 0,
-        designId: `design-${Date.now()}`,
+        image: frontPreview || backPreview || '',
+        basePrice,
+        printPrice: printPrice + bothSides,
+        designId: savedDesignId || `design-${Date.now()}`,
         designName: `Custom ${tshirtGender} T-Shirt`,
-        designImage,
+        designImage: frontPreview || backPreview || '',
         size: tshirtSize,
         color: tshirtColor,
         gender: tshirtGender,
         fit: tshirtFit,
-        hasFront: designSide === 'front',
-        hasBack: designSide === 'back',
+        hasFront: frontHas,
+        hasBack: backHas,
+        customDesign: {
+          frontImage: frontPreview || undefined,
+          backImage: backPreview || undefined,
+        },
         quantity: 1,
-        price,
+        price: basePrice + printPrice + bothSides,
       });
 
-      // Show success notification - DON'T redirect
       showNotification('Added to cart! 🎉');
       setIsAddingToCart(false);
     } catch (error) {
@@ -355,36 +696,54 @@ export default function DesignStudio() {
       return;
     }
 
+    syncCurrentSideState();
+
+    const frontHas = designSide === 'front'
+      ? fabricCanvasRef.current.getObjects().length > 0
+      : hasFrontDesign;
+    const backHas = designSide === 'back'
+      ? fabricCanvasRef.current.getObjects().length > 0
+      : hasBackDesign;
+
+    if (!frontHas && !backHas) {
+      showNotification('Please add a design to at least one side!');
+      return;
+    }
+
     setIsAddingToCart(true);
 
     try {
-      const designImage = fabricCanvasRef.current.toDataURL({
-        format: 'png', quality: 1,
-        multiplier: 2
-      });
-      const price = calculatePrice();
+      const frontPreview = await generateCompositePreview('front', frontDataRef.current.designImage);
+      const backPreview = await generateCompositePreview('back', backDataRef.current.designImage);
+
+      const basePrice = getBasePrice();
+      const printPrice = getPrintPrice();
+      const bothSides = frontHas && backHas ? BACK_PRINT_SURCHARGE : 0;
 
       addItem({
         id: `custom-${Date.now()}`,
         productId: `custom-design`,
         name: `Custom ${tshirtGender} T-Shirt`,
-        image: designImage,
-        basePrice: price,
-        printPrice: 0,
-        designId: `design-${Date.now()}`,
+        image: frontPreview || backPreview || '',
+        basePrice,
+        printPrice: printPrice + bothSides,
+        designId: savedDesignId || `design-${Date.now()}`,
         designName: `Custom ${tshirtGender} T-Shirt`,
-        designImage,
+        designImage: frontPreview || backPreview || '',
         size: tshirtSize,
         color: tshirtColor,
         gender: tshirtGender,
         fit: tshirtFit,
-        hasFront: designSide === 'front',
-        hasBack: designSide === 'back',
+        hasFront: frontHas,
+        hasBack: backHas,
+        customDesign: {
+          frontImage: frontPreview || undefined,
+          backImage: backPreview || undefined,
+        },
         quantity: 1,
-        price,
+        price: basePrice + printPrice + bothSides,
       });
 
-      // Redirect to cart for checkout
       router.push('/cart');
     } catch (error) {
       console.error('Buy now error:', error);
@@ -392,6 +751,7 @@ export default function DesignStudio() {
       setIsAddingToCart(false);
     }
   };
+
 
   const canUndo = historyStepRef.current > 0;
   const canRedo = historyStepRef.current < historyRef.current.length - 1;
@@ -511,24 +871,38 @@ export default function DesignStudio() {
             <h3 className="font-semibold mb-4">Design Side</h3>
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => setDesignSide('front')}
-                className={`py-3 rounded-lg font-medium transition ${designSide === 'front'
+                onClick={() => switchSide('front')}
+                className={`py-3 rounded-lg font-medium transition relative ${designSide === 'front'
                   ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
                   : 'bg-gray-100 hover:bg-gray-200'
                   }`}
               >
                 Front
+                {hasFrontDesign && (
+                  <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${designSide === 'front' ? 'bg-white' : 'bg-green-500'}`} />
+                )}
               </button>
               <button
-                onClick={() => setDesignSide('back')}
-                className={`py-3 rounded-lg font-medium transition ${designSide === 'back'
+                onClick={() => switchSide('back')}
+                className={`py-3 rounded-lg font-medium transition relative ${designSide === 'back'
                   ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
                   : 'bg-gray-100 hover:bg-gray-200'
                   }`}
               >
                 Back
+                {hasBackDesign && (
+                  <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${designSide === 'back' ? 'bg-white' : 'bg-green-500'}`} />
+                )}
               </button>
             </div>
+            {(hasFrontDesign || hasBackDesign || currentSideHasDesign()) && (
+              <p className="text-[10px] text-gray-500 mt-2 text-center">
+                {[
+                  hasFrontDesign || (designSide === 'front' && currentSideHasDesign()) ? '✓ Front' : null,
+                  hasBackDesign || (designSide === 'back' && currentSideHasDesign()) ? '✓ Back' : null,
+                ].filter(Boolean).join(' • ')}
+              </p>
+            )}
           </div>
 
           <div className="bg-white rounded-xl border p-6">
@@ -549,6 +923,25 @@ export default function DesignStudio() {
                   title={color.name}
                 />
               ))}
+            </div>
+            {/* Custom color picker */}
+            <div className="mt-3 flex items-center gap-3">
+              <label className="relative flex-1 group cursor-pointer">
+                <input
+                  type="color"
+                  value={tshirtColor}
+                  onChange={(e) => setTshirtColor(e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-300 hover:border-gray-400 transition">
+                  <div
+                    className="w-5 h-5 rounded-full border border-gray-300"
+                    style={{ backgroundColor: tshirtColor }}
+                  />
+                  <span className="text-xs text-gray-500 group-hover:text-gray-700">Custom Color</span>
+                </div>
+              </label>
+              <span className="text-[10px] text-gray-400 font-mono uppercase">{tshirtColor}</span>
             </div>
           </div>
 
@@ -619,24 +1012,34 @@ export default function DesignStudio() {
 
             <div
               ref={mockupRef}
-              className="relative bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl p-8 flex justify-center items-center"
+              className="relative rounded-xl p-8 flex justify-center items-center bg-gradient-to-br from-gray-100 to-gray-200"
               style={{ minHeight: '650px' }}
             >
               <div className="relative" style={{ width: '450px', height: '550px' }}>
 
-                <img
-                  src={`/mockups/tshirt-white-${designSide}.png`}
-                  alt={`T-Shirt ${designSide}`}
-                  className="absolute inset-0 w-full h-full object-contain transition-all duration-300"
+                {/* ── Clean flat mockup: white base + CSS color mask ── */}
+                <div
+                  className="absolute inset-0 transition-colors duration-300"
                   style={{
-                    filter: getColorFilter(),
-                  }}
-                  onError={(e) => {
-                    console.warn('Mockup image not found');
-                    e.currentTarget.style.display = 'none';
+                    backgroundColor: tshirtColor,
+                    WebkitMaskImage: `url(${getMockupSrc()})`,
+                    WebkitMaskSize: 'contain',
+                    WebkitMaskRepeat: 'no-repeat',
+                    WebkitMaskPosition: 'center',
+                    maskImage: `url(${getMockupSrc()})`,
+                    maskSize: 'contain',
+                    maskRepeat: 'no-repeat',
+                    maskPosition: 'center',
                   }}
                 />
+                <img
+                  src={getMockupSrc()}
+                  alt={`T-Shirt ${designSide}`}
+                  className="absolute inset-0 w-full h-full object-contain"
+                  style={{ mixBlendMode: 'multiply', opacity: 0.92 }}
+                />
 
+                {/* Fabric.js canvas (the user's design) */}
                 <div
                   className="absolute pointer-events-auto"
                   style={{
@@ -762,16 +1165,60 @@ export default function DesignStudio() {
           )}
 
           <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 text-white">
+            {/* Print size indicator */}
+            {printSize && (
+              <div className="mb-4 p-3 bg-white/10 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                  <Ruler className="w-4 h-4 text-blue-400" />
+                  <span className="text-xs font-medium text-blue-300">Print Area</span>
+                </div>
+                <p className="text-sm">
+                  {printSize.widthCm.toFixed(1)}cm × {printSize.heightCm.toFixed(1)}cm
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Tier: <span className="text-white font-medium">{printSize.tier.name}</span> (+₹{printSize.tier.price})
+                </p>
+              </div>
+            )}
+
             <h3 className="font-semibold mb-4">Price Summary</h3>
             <div className="space-y-2 text-sm mb-4">
               <div className="flex justify-between">
-                <span>Base T-Shirt ({tshirtSize})</span>
-                <span>₹399</span>
+                <span>{tshirtFit === 'oversized' ? 'Oversized' : 'Regular'} T-Shirt ({tshirtSize})</span>
+                <span>₹{getBasePrice()}</span>
               </div>
-              <div className="flex justify-between">
-                <span>{designSide === 'front' ? 'Front' : 'Back'} Print</span>
-                <span>₹100</span>
-              </div>
+              {printSize && (
+                <div className="flex justify-between">
+                  <span>{designSide === 'front' ? 'Front' : 'Back'} Print ({printSize.tier.name})</span>
+                  <span>₹{getPrintPrice()}</span>
+                </div>
+              )}
+              {/* Show other side's design indicator */}
+              {designSide === 'front' && hasBackDesign && (
+                <div className="flex justify-between text-green-400">
+                  <span>✓ Back Print (saved)</span>
+                  <span>included</span>
+                </div>
+              )}
+              {designSide === 'back' && hasFrontDesign && (
+                <div className="flex justify-between text-green-400">
+                  <span>✓ Front Print (saved)</span>
+                  <span>included</span>
+                </div>
+              )}
+              {/* Both sides surcharge */}
+              {currentSideHasDesign() && (designSide === 'front' ? hasBackDesign : hasFrontDesign) && (
+                <div className="flex justify-between text-yellow-300">
+                  <span>Both Sides Surcharge</span>
+                  <span>₹{BACK_PRINT_SURCHARGE}</span>
+                </div>
+              )}
+              {!printSize && (
+                <div className="flex justify-between text-gray-400">
+                  <span>No design yet</span>
+                  <span>₹0</span>
+                </div>
+              )}
               <div className="flex justify-between text-xs text-gray-400">
                 <span>{tshirtGender} • {tshirtFit} fit</span>
               </div>

@@ -279,7 +279,11 @@ export default function CheckoutPage() {
                     <div key={item.id} className="flex gap-3">
                       <div className="w-14 h-18 bg-[#F0EDE8] flex-shrink-0 overflow-hidden">
                         {item.image ? (
-                          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className={`w-full h-full ${item.productId === 'custom-design' ? 'object-contain' : 'object-cover'}`}
+                          />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <ShoppingBag className="w-5 h-5 text-[#C8C2B8]" />
@@ -288,7 +292,15 @@ export default function CheckoutPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-[#1C1C1C] truncate">{item.name}</p>
-                        <p className="text-[11px] text-[#8B7355]">{item.size} · {item.color}</p>
+                        <p className="text-[11px] text-[#8B7355] flex items-center gap-1">
+                          <span
+                            className="inline-block w-2.5 h-2.5 rounded-full border border-[#D9D4CC] flex-shrink-0"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          {item.size}
+                          {item.hasFront && ' · Front'}
+                          {item.hasBack && ' · Back'}
+                        </p>
                         <p className="text-sm font-medium text-[#1C1C1C] mt-1">
                           ₹{(item.basePrice + item.printPrice).toLocaleString()} × {item.quantity}
                         </p>

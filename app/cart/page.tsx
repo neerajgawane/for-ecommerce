@@ -63,7 +63,11 @@ export default function CartPage() {
                 {/* Image */}
                 <div className="w-24 h-32 lg:w-28 lg:h-36 bg-[#F0EDE8] flex-shrink-0 overflow-hidden">
                   {item.image ? (
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className={`w-full h-full ${item.productId === 'custom-design' ? 'object-contain' : 'object-cover'}`}
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <ShoppingBag className="w-8 h-8 text-[#C8C2B8]" />
@@ -78,7 +82,15 @@ export default function CartPage() {
                       {item.gender || 'Unisex'} · {item.fit || 'Regular'} Fit
                     </p>
                     <h3 className="text-sm font-medium text-[#1C1C1C] leading-snug mb-1 truncate">{item.name}</h3>
-                    <p className="text-[11px] text-[#6B6055]">{item.color} · Size {item.size}</p>
+                    <p className="text-[11px] text-[#6B6055] flex items-center gap-1.5">
+                      <span
+                        className="inline-block w-3 h-3 rounded-full border border-[#D9D4CC] flex-shrink-0"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      Size {item.size}
+                      {item.hasFront && ' · Front'}
+                      {item.hasBack && ' · Back'}
+                    </p>
                   </div>
 
                   <div className="flex items-end justify-between mt-3">
