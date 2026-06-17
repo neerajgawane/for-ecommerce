@@ -29,13 +29,13 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="min-h-screen" style={{ background: '#FAF8F5' }}>
+    <div className="min-h-screen" style={{ background: '#FDF8F6' }}>
 
       {/* ── HERO COLLAGE ─────────────────────────────────────────── */}
       <HeroCollage />
 
       {/* ── MARQUEE STRIP ─────────────────────────────────────────── */}
-      <div className="bg-[#1C1C1C] text-[#FAF8F5] py-3 overflow-hidden">
+      <div className="bg-[#2D2226] text-[#FDF8F6] py-3 overflow-hidden">
         <div className="flex whitespace-nowrap" style={{ animation: 'marquee 25s linear infinite' }}>
           {[...Array(4)].map((_, i) => (
             <span key={i} className="text-[10px] tracking-[0.3em] uppercase font-medium mx-8 flex-shrink-0">
@@ -50,9 +50,9 @@ export default function HomePage() {
         <section className="py-20 px-5 lg:px-10 max-w-[1440px] mx-auto">
           <div className="flex items-end justify-between mb-10">
             <div>
-              <p className="text-[11px] tracking-[0.25em] uppercase text-[#8B7355] mb-2 font-medium">Curated for you</p>
+              <p className="text-[11px] tracking-[0.25em] uppercase text-[#C4899B] mb-2 font-medium">Curated for you</p>
               <h2
-                className="text-3xl lg:text-4xl text-[#1C1C1C] leading-tight"
+                className="text-3xl lg:text-4xl text-[#2D2226] leading-tight"
                 style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif", fontWeight: 500 }}
               >
                 Featured Products
@@ -60,7 +60,7 @@ export default function HomePage() {
             </div>
             <Link
               href="/products"
-              className="hidden md:flex items-center gap-2 text-[11px] tracking-[0.18em] uppercase font-semibold text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
+              className="hidden md:flex items-center gap-2 text-[11px] tracking-[0.18em] uppercase font-semibold text-[#2D2226] hover:text-[#C4899B] transition-colors"
             >
               View All <ArrowRight className="w-3 h-3" />
             </Link>
@@ -90,7 +90,7 @@ export default function HomePage() {
           <div className="md:hidden mt-10 text-center">
             <Link
               href="/products"
-              className="inline-flex items-center gap-2.5 px-8 py-3.5 text-xs tracking-[0.18em] uppercase font-semibold bg-[#1C1C1C] text-[#FAF8F5] hover:bg-[#333] transition-colors"
+              className="inline-flex items-center gap-2.5 px-8 py-3.5 text-xs tracking-[0.18em] uppercase font-semibold bg-[#2D2226] text-[#FDF8F6] hover:bg-[#3D3236] transition-colors"
             >
               View All Products <ArrowRight className="w-3.5 h-3.5" />
             </Link>
@@ -99,7 +99,7 @@ export default function HomePage() {
       )}
 
       {/* ── WHY FOR? ──────────────────────────────────────────────── */}
-      <section className="py-20 px-5 lg:px-10" style={{ background: '#F0EDE8' }}>
+      <section className="py-20 px-5 lg:px-10" style={{ background: '#F8F0EE' }}>
         <div className="max-w-[1440px] mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10 lg:gap-16">
             {[
@@ -108,9 +108,9 @@ export default function HomePage() {
               { num: '03', title: 'Fast Delivery', desc: 'Get your custom design delivered in 5–7 days. Fast turnaround, zero compromise.' },
             ].map((item) => (
               <div key={item.num}>
-                <span className="text-[11px] tracking-[0.3em] text-[#8B7355] uppercase font-semibold block mb-4">{item.num}</span>
+                <span className="text-[11px] tracking-[0.3em] text-[#C4899B] uppercase font-semibold block mb-4">{item.num}</span>
                 <h3
-                  className="text-xl text-[#1C1C1C] mb-3 leading-snug"
+                  className="text-xl text-[#2D2226] mb-3 leading-snug"
                   style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif", fontWeight: 500 }}
                 >
                   {item.title}
@@ -123,11 +123,11 @@ export default function HomePage() {
       </section>
 
       {/* ── CTA ───────────────────────────────────────────────────── */}
-      <section className="py-24 px-5 lg:px-10" style={{ background: '#FAF8F5' }}>
+      <section className="py-24 px-5 lg:px-10" style={{ background: '#FDF8F6' }}>
         <div className="max-w-2xl mx-auto text-center">
-          <p className="text-[11px] tracking-[0.25em] uppercase text-[#8B7355] mb-4 font-medium">Start creating</p>
+          <p className="text-[11px] tracking-[0.25em] uppercase text-[#C4899B] mb-4 font-medium">Start creating</p>
           <h2
-            className="text-4xl lg:text-5xl text-[#1C1C1C] mb-6 leading-[1.1]"
+            className="text-4xl lg:text-5xl text-[#2D2226] mb-6 leading-[1.1]"
             style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif", fontWeight: 500 }}
           >
             Ready to design<br />
@@ -138,7 +138,7 @@ export default function HomePage() {
           </p>
           <Link
             href="/studio"
-            className="inline-flex items-center gap-2.5 px-10 py-4 text-xs tracking-[0.18em] uppercase font-semibold bg-[#1C1C1C] text-[#FAF8F5] hover:bg-[#333] transition-colors duration-300"
+            className="inline-flex items-center gap-2.5 px-10 py-4 text-xs tracking-[0.18em] uppercase font-semibold bg-[#2D2226] text-[#FDF8F6] hover:bg-[#3D3236] transition-colors duration-300"
           >
             Open Design Studio <ArrowRight className="w-3.5 h-3.5" />
           </Link>

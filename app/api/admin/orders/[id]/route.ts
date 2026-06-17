@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { sendOrderStatusUpdate } from '@/lib/email';
 
 // GET single order detail
 export async function GET(
@@ -88,6 +89,19 @@ export async function PATCH(
     });
 
     console.log(`✅ Order ${order.orderNumber} updated: status=${order.status}`);
+
+    // Send status update email to customer (for meaningful status changes)
+    const emailStatuses = ['processing', 'shipped', 'delivered', 'cancelled'];
+    if (body.status && emailStatuses.includes(body.status)) {
+      sendOrderStatusUpdate({
+        customerEmail: order.customerEmail,
+        customerName: order.customerName,
+        orderNumber: order.orderNumber,
+        newStatus: body.status,
+        trackingNumber: body.trackingNumber,
+        courierName: body.courierName,
+      }).catch(console.error);
+    }
 
     return NextResponse.json({ order });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

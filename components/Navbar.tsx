@@ -8,17 +8,26 @@ import { useCartStore } from '@/store/cartStore';
 import { useSession, signOut } from 'next-auth/react';
 
 const NAV_LINKS = [
-  { label: 'New Arrivals', href: '/products?featured=true' },
-  { label: 'T-Shirts', href: '/products?category=t-shirt' },
-  { label: 'Hoodies', href: '/products?category=hoodie' },
+  { label: 'New In', href: '/products?featured=true' },
   {
-    label: 'Shop',
+    label: 'Women',
     href: '#',
     dropdown: [
-      { label: 'For Him', href: '/products?gender=men' },
-      { label: 'For Her', href: '/products?gender=women' },
-      { label: 'Unisex', href: '/products' },
-      { label: 'Oversized', href: '/products?fit=oversized' },
+      { label: 'T-Shirts', href: '/products?gender=women&category=t-shirt' },
+      { label: 'Oversized Tees', href: '/products?gender=women&fit=oversized' },
+      { label: 'Crop Tops', href: '/products?gender=women&category=crop-top' },
+      { label: 'Hoodies', href: '/products?gender=women&category=hoodie' },
+      { label: 'View All', href: '/products?gender=women' },
+    ],
+  },
+  {
+    label: 'Men',
+    href: '#',
+    dropdown: [
+      { label: 'T-Shirts', href: '/products?gender=men&category=t-shirt' },
+      { label: 'Oversized Tees', href: '/products?gender=men&fit=oversized' },
+      { label: 'Hoodies', href: '/products?gender=men&category=hoodie' },
+      { label: 'View All', href: '/products?gender=men' },
     ],
   },
   { label: 'Custom Design', href: '/studio' },
@@ -78,14 +87,14 @@ export default function Navbar() {
   return (
     <>
       {/* Announcement Bar */}
-      <div className="bg-[#1C1C1C] text-[#FAF8F5] text-[10px] tracking-[0.25em] text-center py-2 font-medium uppercase">
-        Free shipping on orders above ₹999 &nbsp;·&nbsp; New arrivals every week
+      <div className="bg-[#2D2226] text-[#FDF8F6] text-[10px] tracking-[0.25em] text-center py-2 font-medium uppercase">
+        New Women&apos;s Collection Dropped 🌸 &nbsp;·&nbsp; Free shipping above ₹999
       </div>
 
       {/* Main Navbar */}
       <header
-        className={`sticky top-0 z-50 bg-[#FAF8F5] transition-shadow duration-300 ${
-          scrolled ? 'shadow-[0_1px_12px_rgba(0,0,0,0.07)]' : 'border-b border-[#E8E2D9]'
+        className={`sticky top-0 z-50 bg-[#FDF8F6] transition-shadow duration-300 ${
+          scrolled ? 'shadow-[0_1px_12px_rgba(0,0,0,0.07)]' : 'border-b border-[#F0E4E0]'
         }`}
       >
         <div className="max-w-[1440px] mx-auto px-5 lg:px-10">
@@ -110,7 +119,7 @@ export default function Navbar() {
                     onMouseEnter={() => setDropdownOpen(link.label)}
                     onMouseLeave={() => setDropdownOpen(null)}
                   >
-                    <button className="flex items-center gap-1 text-xs tracking-widest uppercase font-medium text-[#1C1C1C] hover:text-[#8B7355] transition-colors duration-200">
+                    <button className="flex items-center gap-1 text-xs tracking-widest uppercase font-medium text-[#2D2226] hover:text-[#C4899B] transition-colors duration-200">
                       {link.label}
                       <ChevronDown
                         className={`w-3 h-3 transition-transform duration-200 ${
@@ -120,13 +129,13 @@ export default function Navbar() {
                     </button>
                     {dropdownOpen === link.label && (
                       <div className="absolute left-0 top-full pt-2 z-50">
-                        <div className="bg-[#FAF8F5] border border-[#E8E2D9] shadow-lg min-w-[160px]">
+                        <div className="bg-[#FDF8F6] border border-[#F0E4E0] shadow-lg min-w-[160px]">
                           {link.dropdown.map((item) => (
                             <Link
                               key={item.href}
                               href={item.href}
                               onClick={() => setDropdownOpen(null)}
-                              className="block px-5 py-3 text-[11px] tracking-widest uppercase font-medium text-[#1C1C1C] hover:bg-[#F0EDE8] hover:text-[#8B7355] transition-colors"
+                              className="block px-5 py-3 text-[11px] tracking-widest uppercase font-medium text-[#2D2226] hover:bg-[#F8F0EE] hover:text-[#C4899B] transition-colors"
                             >
                               {item.label}
                             </Link>
@@ -139,7 +148,7 @@ export default function Navbar() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="text-xs tracking-widest uppercase font-medium text-[#1C1C1C] hover:text-[#8B7355] transition-colors duration-200 whitespace-nowrap"
+                    className="text-xs tracking-widest uppercase font-medium text-[#2D2226] hover:text-[#C4899B] transition-colors duration-200 whitespace-nowrap"
                   >
                     {link.label}
                   </Link>
@@ -152,7 +161,7 @@ export default function Navbar() {
               {/* Search */}
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
-                className="text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
+                className="text-[#2D2226] hover:text-[#C4899B] transition-colors"
                 aria-label="Search"
               >
                 <Search className="w-[18px] h-[18px]" />
@@ -161,7 +170,7 @@ export default function Navbar() {
               {/* Wishlist */}
               <Link
                 href="/wishlist"
-                className="hidden lg:block text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
+                className="hidden lg:block text-[#2D2226] hover:text-[#C4899B] transition-colors"
                 aria-label="Wishlist"
               >
                 <Heart className="w-[18px] h-[18px]" />
@@ -172,44 +181,44 @@ export default function Navbar() {
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
+                    className="flex items-center gap-2 text-[#2D2226] hover:text-[#C4899B] transition-colors"
                     aria-label="Account menu"
                   >
                     {session.user?.image ? (
                       <img
                         src={session.user.image}
                         alt={session.user.name || 'User'}
-                        className="w-7 h-7 rounded-full object-cover border border-[#E8E2D9]"
+                        className="w-7 h-7 rounded-full object-cover border border-[#F0E4E0]"
                       />
                     ) : (
-                      <div className="w-7 h-7 rounded-full bg-[#1C1C1C] text-[#FAF8F5] flex items-center justify-center text-[11px] font-bold">
+                      <div className="w-7 h-7 rounded-full bg-[#2D2226] text-[#FDF8F6] flex items-center justify-center text-[11px] font-bold">
                         {userInitial}
                       </div>
                     )}
                   </button>
                   {userMenuOpen && (
-                    <div className="absolute right-0 top-full mt-2 bg-[#FAF8F5] border border-[#E8E2D9] shadow-lg min-w-[180px] z-50">
-                      <div className="px-4 py-3 border-b border-[#E8E2D9]">
-                        <p className="text-xs font-semibold text-[#1C1C1C] truncate">{session.user?.name || 'User'}</p>
-                        <p className="text-[10px] text-[#8B7355] truncate">{session.user?.email}</p>
+                    <div className="absolute right-0 top-full mt-2 bg-[#FDF8F6] border border-[#F0E4E0] shadow-lg min-w-[180px] z-50">
+                      <div className="px-4 py-3 border-b border-[#F0E4E0]">
+                        <p className="text-xs font-semibold text-[#2D2226] truncate">{session.user?.name || 'User'}</p>
+                        <p className="text-[10px] text-[#C4899B] truncate">{session.user?.email}</p>
                       </div>
                       <Link
                         href="/orders"
                         onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-2 px-4 py-3 text-[11px] uppercase tracking-wider font-medium text-[#1C1C1C] hover:bg-[#F0EDE8] transition-colors"
+                        className="flex items-center gap-2 px-4 py-3 text-[11px] uppercase tracking-wider font-medium text-[#2D2226] hover:bg-[#F8F0EE] transition-colors"
                       >
                         <Package className="w-3.5 h-3.5" /> My Orders
                       </Link>
                       <Link
                         href="/wishlist"
                         onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-2 px-4 py-3 text-[11px] uppercase tracking-wider font-medium text-[#1C1C1C] hover:bg-[#F0EDE8] transition-colors"
+                        className="flex items-center gap-2 px-4 py-3 text-[11px] uppercase tracking-wider font-medium text-[#2D2226] hover:bg-[#F8F0EE] transition-colors"
                       >
                         <Heart className="w-3.5 h-3.5" /> Wishlist
                       </Link>
                       <button
                         onClick={() => { signOut({ callbackUrl: '/' }); setUserMenuOpen(false); }}
-                        className="flex items-center gap-2 w-full px-4 py-3 text-[11px] uppercase tracking-wider font-medium text-[#8B7355] hover:bg-[#F0EDE8] transition-colors"
+                        className="flex items-center gap-2 w-full px-4 py-3 text-[11px] uppercase tracking-wider font-medium text-[#C4899B] hover:bg-[#F8F0EE] transition-colors"
                       >
                         <LogOut className="w-3.5 h-3.5" /> Sign Out
                       </button>
@@ -219,7 +228,7 @@ export default function Navbar() {
               ) : (
                 <Link
                   href="/login"
-                  className="text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
+                  className="text-[#2D2226] hover:text-[#C4899B] transition-colors"
                   aria-label="Sign In"
                 >
                   <User className="w-[18px] h-[18px]" />
@@ -229,12 +238,12 @@ export default function Navbar() {
               {/* Cart */}
               <Link
                 href="/cart"
-                className="relative text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
+                className="relative text-[#2D2226] hover:text-[#C4899B] transition-colors"
                 aria-label="Cart"
               >
                 <ShoppingBag className="w-[18px] h-[18px]" />
                 {mounted && getTotalItems() > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-[#1C1C1C] text-[#FAF8F5] text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                  <span className="absolute -top-1.5 -right-1.5 bg-[#2D2226] text-[#FDF8F6] text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
                     {getTotalItems()}
                   </span>
                 )}
@@ -243,7 +252,7 @@ export default function Navbar() {
               {/* Mobile hamburger */}
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="lg:hidden text-[#1C1C1C] ml-1"
+                className="lg:hidden text-[#2D2226] ml-1"
                 aria-label="Open menu"
               >
                 <Menu className="w-5 h-5" />
@@ -254,22 +263,22 @@ export default function Navbar() {
 
         {/* Search Bar */}
         {searchOpen && (
-          <div className="border-t border-[#E8E2D9] bg-[#FAF8F5]">
+          <div className="border-t border-[#F0E4E0] bg-[#FDF8F6]">
             <div className="max-w-[1440px] mx-auto px-5 lg:px-10 py-4">
               <form onSubmit={handleSearch} className="relative max-w-xl mx-auto">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B7355]" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C4899B]" />
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search t-shirts, hoodies..."
-                  className="w-full pl-11 pr-10 py-2.5 text-sm bg-white border border-[#E8E2D9] focus:outline-none focus:border-[#1C1C1C] transition-colors placeholder:text-[#B5A898]"
+                  className="w-full pl-11 pr-10 py-2.5 text-sm bg-white border border-[#F0E4E0] focus:outline-none focus:border-[#2D2226] transition-colors placeholder:text-[#B5A898]"
                 />
                 <button
                   type="button"
                   onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8B7355] hover:text-[#1C1C1C]"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#C4899B] hover:text-[#2D2226]"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -289,31 +298,31 @@ export default function Navbar() {
             className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="absolute left-0 top-0 bottom-0 w-[80vw] max-w-[320px] bg-[#FAF8F5] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#E8E2D9]">
+          <div className="absolute left-0 top-0 bottom-0 w-[80vw] max-w-[320px] bg-[#FDF8F6] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#F0E4E0]">
               <span
                 className="text-lg font-bold tracking-[0.18em] uppercase"
                 style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif" }}
               >
                 FOR
               </span>
-              <button onClick={() => setMobileMenuOpen(false)} className="text-[#1C1C1C]">
+              <button onClick={() => setMobileMenuOpen(false)} className="text-[#2D2226]">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {session && (
-              <div className="flex items-center gap-3 px-6 py-4 bg-[#F0EDE8] border-b border-[#E8E2D9]">
+              <div className="flex items-center gap-3 px-6 py-4 bg-[#F8F0EE] border-b border-[#F0E4E0]">
                 {session.user?.image ? (
                   <img src={session.user.image} alt="" className="w-8 h-8 rounded-full object-cover" />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-[#1C1C1C] text-[#FAF8F5] flex items-center justify-center text-sm font-bold">
+                  <div className="w-8 h-8 rounded-full bg-[#2D2226] text-[#FDF8F6] flex items-center justify-center text-sm font-bold">
                     {userInitial}
                   </div>
                 )}
                 <div>
-                  <p className="text-xs font-semibold text-[#1C1C1C]">{session.user?.name}</p>
-                  <p className="text-[10px] text-[#8B7355]">{session.user?.email}</p>
+                  <p className="text-xs font-semibold text-[#2D2226]">{session.user?.name}</p>
+                  <p className="text-[10px] text-[#C4899B]">{session.user?.email}</p>
                 </div>
               </div>
             )}
@@ -322,7 +331,7 @@ export default function Navbar() {
               {NAV_LINKS.map((link) =>
                 link.dropdown ? (
                   <div key={link.label}>
-                    <p className="py-3 text-[11px] tracking-widest uppercase font-semibold text-[#8B7355] border-b border-[#E8E2D9]">
+                    <p className="py-3 text-[11px] tracking-widest uppercase font-semibold text-[#C4899B] border-b border-[#F0E4E0]">
                       {link.label}
                     </p>
                     {link.dropdown.map((item) => (
@@ -330,7 +339,7 @@ export default function Navbar() {
                         key={item.href}
                         href={item.href}
                         onClick={() => setMobileMenuOpen(false)}
-                        className="pl-4 py-2.5 block text-sm tracking-wider text-[#4A4540] border-b border-[#F0EDE8] hover:text-[#8B7355] transition-colors"
+                        className="pl-4 py-2.5 block text-sm tracking-wider text-[#4A4540] border-b border-[#F8F0EE] hover:text-[#C4899B] transition-colors"
                       >
                         {item.label}
                       </Link>
@@ -341,7 +350,7 @@ export default function Navbar() {
                     key={link.href}
                     href={link.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="py-3 text-[11px] tracking-widest uppercase font-medium text-[#1C1C1C] border-b border-[#E8E2D9] hover:text-[#8B7355] transition-colors"
+                    className="py-3 text-[11px] tracking-widest uppercase font-medium text-[#2D2226] border-b border-[#F0E4E0] hover:text-[#C4899B] transition-colors"
                   >
                     {link.label}
                   </Link>
@@ -349,25 +358,25 @@ export default function Navbar() {
               )}
             </nav>
 
-            <div className="px-6 py-5 border-t border-[#E8E2D9] flex flex-col gap-3">
+            <div className="px-6 py-5 border-t border-[#F0E4E0] flex flex-col gap-3">
               <Link
                 href="/orders"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2.5 text-sm text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
+                className="flex items-center gap-2.5 text-sm text-[#2D2226] hover:text-[#C4899B] transition-colors"
               >
                 <Package className="w-4 h-4" /> My Orders
               </Link>
               <Link
                 href="/wishlist"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2.5 text-sm text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
+                className="flex items-center gap-2.5 text-sm text-[#2D2226] hover:text-[#C4899B] transition-colors"
               >
                 <Heart className="w-4 h-4" /> Wishlist
               </Link>
               <Link
                 href="/cart"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2.5 text-sm text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
+                className="flex items-center gap-2.5 text-sm text-[#2D2226] hover:text-[#C4899B] transition-colors"
               >
                 <ShoppingBag className="w-4 h-4" /> Cart{' '}
                 {mounted && getTotalItems() > 0 && `(${getTotalItems()})`}
@@ -375,7 +384,7 @@ export default function Navbar() {
               {session ? (
                 <button
                   onClick={() => { signOut({ callbackUrl: '/' }); setMobileMenuOpen(false); }}
-                  className="flex items-center gap-2.5 text-sm text-[#8B7355]"
+                  className="flex items-center gap-2.5 text-sm text-[#C4899B]"
                 >
                   <LogOut className="w-4 h-4" /> Sign Out
                 </button>
@@ -383,7 +392,7 @@ export default function Navbar() {
                 <Link
                   href="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2.5 text-sm text-[#1C1C1C] hover:text-[#8B7355] transition-colors"
+                  className="flex items-center gap-2.5 text-sm text-[#2D2226] hover:text-[#C4899B] transition-colors"
                 >
                   <User className="w-4 h-4" /> Sign In
                 </Link>

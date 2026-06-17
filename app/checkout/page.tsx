@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useCartStore } from '@/store/cartStore';
-import { ArrowLeft, Shield, CreditCard, Wallet, Truck, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Shield, CreditCard, Wallet, Truck, ShoppingBag, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 const INDIAN_STATES = [
@@ -17,6 +17,8 @@ const INDIAN_STATES = [
   'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
 ];
 
+const COD_SURCHARGE = 49;
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -25,6 +27,7 @@ export default function CheckoutPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -63,11 +66,122 @@ export default function CheckoutPage() {
     }
   }, [items, isLoading, router]);
 
+  // Load Razorpay Checkout.js — manual script injection with polling fallback
+  useEffect(() => {
+    // Already loaded (e.g. cached from previous navigation)
+    if (typeof window !== 'undefined' && window.Razorpay) {
+      setRazorpayLoaded(true);
+      return;
+    }
+
+    // Check if script tag already exists
+    const existingScript = document.querySelector('script[src*="checkout.razorpay.com"]');
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => setRazorpayLoaded(true);
+      script.onerror = () => console.error('Failed to load Razorpay SDK');
+      document.head.appendChild(script);
+    }
+
+    // Poll for Razorpay availability (handles cached scripts where onload doesn't fire)
+    const interval = setInterval(() => {
+      if (typeof window !== 'undefined' && window.Razorpay) {
+        setRazorpayLoaded(true);
+        clearInterval(interval);
+      }
+    }, 300);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setError('');
   };
 
+  // ── Razorpay payment handler ────────────────────────────────────────────────
+  const openRazorpayPopup = useCallback(
+    (checkoutData: {
+      orderId: string;
+      orderNumber: string;
+      razorpayOrderId: string;
+      razorpayKeyId: string;
+      amount: number;
+      currency: string;
+      prefill: { name: string; email: string; contact: string };
+    }) => {
+      if (!window.Razorpay) {
+        setError('Payment gateway failed to load. Please refresh the page and try again.');
+        setIsProcessing(false);
+        return;
+      }
+
+      const options: RazorpayOptions = {
+        key: checkoutData.razorpayKeyId,
+        amount: checkoutData.amount,
+        currency: checkoutData.currency,
+        name: 'FOR',
+        description: `Order ${checkoutData.orderNumber}`,
+        order_id: checkoutData.razorpayOrderId,
+        handler: async (response) => {
+          // Payment successful — verify on server
+          try {
+            setIsProcessing(true);
+            const verifyRes = await fetch('/api/checkout/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                orderId: checkoutData.orderId,
+              }),
+            });
+
+            const verifyData = await verifyRes.json();
+
+            if (verifyRes.ok && verifyData.success) {
+              clearCart();
+              router.push(
+                `/order-success?id=${verifyData.orderId}&orderNumber=${verifyData.orderNumber}`
+              );
+            } else {
+              setError(
+                verifyData.error || 'Payment verification failed. Please contact support.'
+              );
+              setIsProcessing(false);
+            }
+          } catch {
+            setError('Payment verification failed. Please contact support.');
+            setIsProcessing(false);
+          }
+        },
+        prefill: checkoutData.prefill,
+        theme: {
+          color: '#1C1C1C',
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessing(false);
+            setError('Payment was cancelled. Your order has been saved — you can retry payment from your orders page.');
+          },
+          confirm_close: true,
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.on('payment.failed', () => {
+        setError('Payment failed. Please try again or choose Cash on Delivery.');
+        setIsProcessing(false);
+      });
+      razorpay.open();
+    },
+    [clearCart, router]
+  );
+
+  // ── Form submit ─────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
@@ -108,10 +222,16 @@ export default function CheckoutPage() {
       }
 
       if (formData.paymentMethod === 'razorpay') {
-        // Razorpay SDK integration in progress — currently processes as confirmed order
-        // Flow: load checkout.js → open payment popup → verify signature server-side
-        clearCart();
-        router.push(`/order-success?id=${data.orderId}&orderNumber=${data.orderNumber}`);
+        // Open Razorpay payment popup
+        openRazorpayPopup({
+          orderId: data.orderId,
+          orderNumber: data.orderNumber,
+          razorpayOrderId: data.razorpayOrderId,
+          razorpayKeyId: data.razorpayKeyId,
+          amount: data.amount,
+          currency: data.currency,
+          prefill: data.prefill,
+        });
       } else {
         // Cash on Delivery — order confirmed immediately
         clearCart();
@@ -133,13 +253,16 @@ export default function CheckoutPage() {
 
   const subtotal = getTotalPrice();
   const shipping = subtotal >= 999 ? 0 : 79;
-  const total = subtotal + shipping;
+  const codCharge = formData.paymentMethod === 'cod' ? COD_SURCHARGE : 0;
+  const total = subtotal + shipping + codCharge;
 
   const inputClass = "w-full px-4 py-3.5 border border-[#C8C2B8] bg-white text-[#1C1C1C] text-sm placeholder:text-[#B0A898] focus:outline-none focus:border-[#1C1C1C] transition-colors";
   const labelClass = "block text-[11px] uppercase tracking-widest text-[#8B7355] mb-2 font-medium";
 
   return (
     <div className="min-h-screen" style={{ background: '#FAF8F5' }}>
+      {/* Razorpay Checkout.js is loaded via useEffect above */}
+
       {/* Header */}
       <div className="border-b border-[#E8E2D9] px-5 lg:px-10 py-10 max-w-[1440px] mx-auto">
         <Link href="/cart" className="inline-flex items-center gap-2 text-[11px] uppercase tracking-widest text-[#8B7355] hover:text-[#1C1C1C] transition-colors mb-4">
@@ -256,7 +379,7 @@ export default function CheckoutPage() {
                       <div className="font-medium text-sm text-[#1C1C1C] flex items-center gap-2">
                         <Wallet className="w-4 h-4" /> Cash on Delivery
                       </div>
-                      <p className="text-[11px] text-[#8B7355] mt-0.5">Pay when your order arrives (₹49 extra)</p>
+                      <p className="text-[11px] text-[#8B7355] mt-0.5">Pay when your order arrives (+₹{COD_SURCHARGE})</p>
                     </div>
                   </label>
                 </div>
@@ -321,6 +444,12 @@ export default function CheckoutPage() {
                       {shipping === 0 ? 'FREE' : `₹${shipping}`}
                     </span>
                   </div>
+                  {codCharge > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-[#6B6055] font-light">COD Charge</span>
+                      <span className="text-[#1C1C1C]">₹{codCharge}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-[#6B6055] font-light flex items-center gap-1.5">
                       <Truck className="w-3.5 h-3.5" /> Delivery
@@ -339,11 +468,26 @@ export default function CheckoutPage() {
 
                 <button
                   type="submit"
-                  disabled={isProcessing}
-                  className="w-full py-4 bg-[#1C1C1C] text-[#FAF8F5] text-[11px] uppercase tracking-[0.18em] font-semibold hover:bg-[#333] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={isProcessing || (formData.paymentMethod === 'razorpay' && !razorpayLoaded)}
+                  className="w-full py-4 bg-[#1C1C1C] text-[#FAF8F5] text-[11px] uppercase tracking-[0.18em] font-semibold hover:bg-[#333] transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {isProcessing ? 'Processing…' : `Pay ₹${total.toLocaleString()}`}
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing…
+                    </>
+                  ) : formData.paymentMethod === 'razorpay' ? (
+                    `Pay ₹${total.toLocaleString()}`
+                  ) : (
+                    `Place Order · ₹${total.toLocaleString()}`
+                  )}
                 </button>
+
+                {formData.paymentMethod === 'razorpay' && !razorpayLoaded && (
+                  <p className="mt-2 text-center text-[10px] text-[#8B7355]">
+                    Loading payment gateway…
+                  </p>
+                )}
 
                 <div className="mt-4 flex items-center justify-center gap-2 text-[10px] text-[#8B7355] tracking-wider">
                   <Shield className="w-3.5 h-3.5" />

@@ -10,6 +10,61 @@ import {
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
+// ── Product types with per-type mockup, print area, and pricing ───────────────
+interface ProductType {
+  id: string;
+  label: string;
+  icon: string;
+  gender: 'women' | 'men' | 'unisex';
+  fit: string;
+  mockupPrefix: string;  // e.g. 'tshirt-regular-women' → looks for /mockups/tshirt-regular-women-front.png
+  basePrice: number;
+  printArea: { top: number; left: number; width: number; height: number };
+}
+
+const PRODUCT_TYPES: ProductType[] = [
+  {
+    id: 'tshirt-women',
+    label: "Women's Tee",
+    icon: '👚',
+    gender: 'women',
+    fit: 'regular',
+    mockupPrefix: 'tshirt-regular-women',
+    basePrice: 399,
+    printArea: { top: 0.20, left: 0.20, width: 0.60, height: 0.50 },
+  },
+  {
+    id: 'tshirt-men',
+    label: "Men's Tee",
+    icon: '👕',
+    gender: 'men',
+    fit: 'regular',
+    mockupPrefix: 'tshirt-regular-men',
+    basePrice: 399,
+    printArea: { top: 0.22, left: 0.19, width: 0.62, height: 0.55 },
+  },
+  {
+    id: 'oversized',
+    label: 'Oversized',
+    icon: '🧥',
+    gender: 'unisex',
+    fit: 'oversized',
+    mockupPrefix: 'tshirt-oversized-men',
+    basePrice: 499,
+    printArea: { top: 0.20, left: 0.17, width: 0.66, height: 0.58 },
+  },
+  {
+    id: 'hoodie',
+    label: 'Hoodie',
+    icon: '🧢',
+    gender: 'unisex',
+    fit: 'hoodie',
+    mockupPrefix: 'hoodie-unisex',
+    basePrice: 799,
+    printArea: { top: 0.28, left: 0.20, width: 0.60, height: 0.48 },
+  },
+];
+
 // ── Print area pricing tiers ──────────────────────────────────────────────────
 interface PrintTier {
   name: string;
@@ -24,11 +79,6 @@ const PRINT_TIERS: PrintTier[] = [
   { name: 'Large',      maxWidth: 30, maxHeight: 30, price: 150 },
   { name: 'Full Chest', maxWidth: 40, maxHeight: 40, price: 200 },
 ];
-
-const BASE_PRICES: Record<string, number> = {
-  'regular':  399,
-  'oversized': 499,
-};
 
 const BACK_PRINT_SURCHARGE = 100;
 
@@ -51,10 +101,10 @@ export default function DesignStudio() {
   const { data: session } = useSession();
 
   const [tshirtColor, setTshirtColor] = useState('#FFFFFF');
-  const [tshirtGender, setTshirtGender] = useState('men');
-  const [tshirtFit, setTshirtFit] = useState('regular');
+  const [selectedProductType, setSelectedProductType] = useState<ProductType>(PRODUCT_TYPES[0]);
   const [tshirtSize, setTshirtSize] = useState('M');
   const [designSide, setDesignSide] = useState<'front' | 'back'>('front');
+  const [mockupExists, setMockupExists] = useState<Record<string, boolean>>({});
 
   const [isCanvasReady, setIsCanvasReady] = useState(false);
   const [selectedObject, setSelectedObject] = useState<FabricObject | null>(null);
@@ -112,8 +162,35 @@ export default function DesignStudio() {
     { name: 'Coral',      hex: '#fb7185' },
   ];
 
-  // Get the base white mockup path for current side
-  const getMockupSrc = () => `/mockups/tshirt-white-${designSide}.png`;
+  // Get the mockup path for current product type + side (with fallback)
+  const getMockupSrc = () => {
+    const productKey = `${selectedProductType.mockupPrefix}-${designSide}`;
+    if (mockupExists[productKey]) {
+      return `/mockups/${selectedProductType.mockupPrefix}-${designSide}.png`;
+    }
+    // Fallback to generic white t-shirt mockup
+    return `/mockups/tshirt-white-${designSide}.png`;
+  };
+
+  // Check if product-specific mockup assets exist
+  useEffect(() => {
+    const checkMockups = async () => {
+      const results: Record<string, boolean> = {};
+      for (const pt of PRODUCT_TYPES) {
+        for (const side of ['front', 'back'] as const) {
+          const key = `${pt.mockupPrefix}-${side}`;
+          try {
+            const res = await fetch(`/mockups/${pt.mockupPrefix}-${side}.png`, { method: 'HEAD' });
+            results[key] = res.ok;
+          } catch {
+            results[key] = false;
+          }
+        }
+      }
+      setMockupExists(results);
+    };
+    checkMockups();
+  }, []);
 
   const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
@@ -449,11 +526,11 @@ export default function DesignStudio() {
       });
 
       const payload = {
-        name: `Custom ${tshirtGender} T-Shirt`,
+        name: `Custom ${selectedProductType.label}`,
         designData,
         tshirtColor,
-        tshirtGender,
-        tshirtFit,
+        tshirtGender: selectedProductType.gender,
+        tshirtFit: selectedProductType.fit,
         tshirtSize,
         frontImage: designSide === 'front' ? imageData : undefined,
         backImage: designSide === 'back' ? imageData : undefined,
@@ -493,7 +570,7 @@ export default function DesignStudio() {
       // Fallback to localStorage
       const fallback = {
         designData: fabricCanvasRef.current.toJSON(),
-        tshirtColor, tshirtSize, tshirtGender, tshirtFit, designSide,
+        tshirtColor, tshirtSize, tshirtGender: selectedProductType.gender, tshirtFit: selectedProductType.fit, designSide,
         savedAt: new Date().toISOString(),
       };
       localStorage.setItem('for-saved-design', JSON.stringify(fallback));
@@ -504,7 +581,7 @@ export default function DesignStudio() {
   };
 
   // ── Price calculation (both sides) ──────────────────────────────────────
-  const getBasePrice = () => BASE_PRICES[tshirtFit] || 399;
+  const getBasePrice = () => selectedProductType.basePrice;
   const getPrintPrice = () => printSize?.tier.price ?? 0;
 
   // Check if current side has design (live canvas)
@@ -594,10 +671,10 @@ export default function DesignStudio() {
     });
 
     if (designImg.complete && designImg.naturalWidth > 0) {
-      const printLeft = W * 0.19;
-      const printTop = H * 0.22;
-      const printWidth = W * 0.62;
-      const printHeight = H * 0.55;
+      const printLeft = W * selectedProductType.printArea.left;
+      const printTop = H * selectedProductType.printArea.top;
+      const printWidth = W * selectedProductType.printArea.width;
+      const printHeight = H * selectedProductType.printArea.height;
       ctx.drawImage(designImg, printLeft, printTop, printWidth, printHeight);
     }
 
@@ -659,17 +736,17 @@ export default function DesignStudio() {
       addItem({
         id: `custom-${Date.now()}`,
         productId: `custom-design`,
-        name: `Custom ${tshirtGender} T-Shirt`,
+        name: `Custom ${selectedProductType.label}`,
         image: frontPreview || backPreview || '',
         basePrice,
         printPrice: printPrice + bothSides,
         designId: savedDesignId || `design-${Date.now()}`,
-        designName: `Custom ${tshirtGender} T-Shirt`,
+        designName: `Custom ${selectedProductType.label}`,
         designImage: frontPreview || backPreview || '',
         size: tshirtSize,
         color: tshirtColor,
-        gender: tshirtGender,
-        fit: tshirtFit,
+        gender: selectedProductType.gender,
+        fit: selectedProductType.fit,
         hasFront: frontHas,
         hasBack: backHas,
         customDesign: {
@@ -723,17 +800,17 @@ export default function DesignStudio() {
       addItem({
         id: `custom-${Date.now()}`,
         productId: `custom-design`,
-        name: `Custom ${tshirtGender} T-Shirt`,
+        name: `Custom ${selectedProductType.label}`,
         image: frontPreview || backPreview || '',
         basePrice,
         printPrice: printPrice + bothSides,
         designId: savedDesignId || `design-${Date.now()}`,
-        designName: `Custom ${tshirtGender} T-Shirt`,
+        designName: `Custom ${selectedProductType.label}`,
         designImage: frontPreview || backPreview || '',
         size: tshirtSize,
         color: tshirtColor,
-        gender: tshirtGender,
-        fit: tshirtFit,
+        gender: selectedProductType.gender,
+        fit: selectedProductType.fit,
         hasFront: frontHas,
         hasBack: backHas,
         customDesign: {
@@ -774,7 +851,7 @@ export default function DesignStudio() {
           <div>
             <h1 className="text-2xl font-bold">Design Studio</h1>
             <p className="text-sm text-gray-600">
-              Designing {designSide} side • {tshirtSize} • {tshirtGender}
+              Designing {designSide} side • {selectedProductType.label} • {tshirtSize}
             </p>
           </div>
           <div className="flex gap-3">
@@ -812,42 +889,24 @@ export default function DesignStudio() {
         {/* Left Sidebar */}
         <div className="col-span-3 space-y-6">
           <div className="bg-white rounded-xl border p-6">
-            <h3 className="font-semibold mb-4">T-Shirt Options</h3>
+            <h3 className="font-semibold mb-4">Product Type</h3>
 
-            <div className="mb-4">
-              <label className="text-sm font-medium block mb-2">Gender</label>
-              <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {PRODUCT_TYPES.map((pt) => (
                 <button
-                  onClick={() => setTshirtGender('men')}
-                  className={`py-2 rounded-lg text-sm font-medium transition ${tshirtGender === 'men' ? 'bg-black text-white' : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
+                  key={pt.id}
+                  onClick={() => setSelectedProductType(pt)}
+                  className={`flex flex-col items-center gap-1 py-3 px-2 rounded-lg text-xs font-medium transition border-2 ${
+                    selectedProductType.id === pt.id
+                      ? 'bg-gradient-to-br from-rose-50 to-pink-50 border-rose-300 text-rose-900 shadow-sm'
+                      : 'bg-gray-50 border-transparent hover:bg-gray-100 hover:border-gray-200'
+                  }`}
                 >
-                  Men
+                  <span className="text-lg">{pt.icon}</span>
+                  <span className="leading-tight text-center">{pt.label}</span>
+                  <span className={`text-[10px] ${selectedProductType.id === pt.id ? 'text-rose-500' : 'text-gray-400'}`}>₹{pt.basePrice}</span>
                 </button>
-                <button
-                  onClick={() => setTshirtGender('women')}
-                  className={`py-2 rounded-lg text-sm font-medium transition ${tshirtGender === 'women' ? 'bg-black text-white' : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-                >
-                  Women
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="text-sm font-medium block mb-2">Fit</label>
-              <div className="grid grid-cols-3 gap-2">
-                {['regular', 'oversized',].map((fit) => (
-                  <button
-                    key={fit}
-                    onClick={() => setTshirtFit(fit)}
-                    className={`py-2 rounded-lg text-xs font-medium capitalize transition ${tshirtFit === fit ? 'bg-black text-white' : 'bg-gray-100 hover:bg-gray-200'
-                      }`}
-                  >
-                    {fit}
-                  </button>
-                ))}
-              </div>
+              ))}
             </div>
 
             <div>
@@ -1184,7 +1243,7 @@ export default function DesignStudio() {
             <h3 className="font-semibold mb-4">Price Summary</h3>
             <div className="space-y-2 text-sm mb-4">
               <div className="flex justify-between">
-                <span>{tshirtFit === 'oversized' ? 'Oversized' : 'Regular'} T-Shirt ({tshirtSize})</span>
+                <span>{selectedProductType.label} ({tshirtSize})</span>
                 <span>₹{getBasePrice()}</span>
               </div>
               {printSize && (
@@ -1220,7 +1279,7 @@ export default function DesignStudio() {
                 </div>
               )}
               <div className="flex justify-between text-xs text-gray-400">
-                <span>{tshirtGender} • {tshirtFit} fit</span>
+                <span>{selectedProductType.gender} • {selectedProductType.fit} fit</span>
               </div>
             </div>
             <div className="border-t border-gray-700 pt-3 flex justify-between font-bold text-lg mb-4">

@@ -19,8 +19,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "FOR - Custom T-Shirt Design",
-  description: "Design your story, wear your art",
+  title: "FOR — Women's & Men's Custom Fashion",
+  description: "Design your own t-shirts, hoodies & more. Women-first fashion brand with custom print studio.",
 };
 
 export default function RootLayout({

@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { sendOrderConfirmation, sendNewOrderAlert, type OrderEmailData } from '@/lib/email';
 import crypto from 'crypto';
+import Razorpay from 'razorpay';
 
 // ── Input validation helpers ──────────────────────────────────────────────────
 function sanitize(s: string): string {
@@ -21,6 +23,9 @@ function isValidPhone(phone: string): boolean {
 function isValidPincode(pin: string): boolean {
   return /^[0-9]{6}$/.test(pin);
 }
+
+// ── COD surcharge ─────────────────────────────────────────────────────────────
+const COD_SURCHARGE = 49;
 
 // ── POST /api/checkout ────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
@@ -91,7 +96,7 @@ export async function POST(request: NextRequest) {
     let totalAmount = 0;
     const validatedItems: Array<{
       productId: string | null;
-      designId: string;
+      designId: string | null;
       quantity: number;
       price: number;
       size: string;
@@ -122,7 +127,7 @@ export async function POST(request: NextRequest) {
 
         validatedItems.push({
           productId: product.id,
-          designId: item.designId || '',
+          designId: item.designId || null,
           quantity: qty,
           price: unitPrice,
           size: sanitize(item.size || 'M'),
@@ -137,7 +142,7 @@ export async function POST(request: NextRequest) {
 
         validatedItems.push({
           productId: null,
-          designId: item.designId || `custom-${Date.now()}`,
+          designId: item.designId || null,
           quantity: qty,
           price: customPrice,
           size: sanitize(item.size || 'M'),
@@ -148,12 +153,55 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Add shipping
+    const shipping = totalAmount >= 999 ? 0 : 79;
+    totalAmount += shipping;
+
+    // Add COD surcharge if applicable
+    if (method === 'cod') {
+      totalAmount += COD_SURCHARGE;
+    }
+
     // 4. Generate unique order number
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = crypto.randomBytes(3).toString('hex').toUpperCase();
     const orderNumber = `FOR-${timestamp}-${random}`;
 
-    // 5. Create order in DB (transaction for data integrity)
+    // 5. For Razorpay — create a Razorpay order first
+    let razorpayOrderId: string | null = null;
+
+    if (method === 'razorpay') {
+      const keyId = process.env.RAZORPAY_KEY_ID;
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+      if (!keyId || !keySecret) {
+        console.error('❌ Razorpay keys not configured');
+        return NextResponse.json(
+          { error: 'Payment gateway is not configured. Please try Cash on Delivery or contact support.' },
+          { status: 500 }
+        );
+      }
+
+      const razorpay = new Razorpay({
+        key_id: keyId,
+        key_secret: keySecret,
+      });
+
+      const razorpayOrder = await razorpay.orders.create({
+        amount: Math.round(totalAmount * 100), // Razorpay expects amount in paise
+        currency: 'INR',
+        receipt: orderNumber,
+        notes: {
+          orderNumber,
+          customerEmail,
+          customerName,
+        },
+      });
+
+      razorpayOrderId = razorpayOrder.id;
+    }
+
+    // 6. Create order in DB
     const order = await prisma.order.create({
       data: {
         userId: dbUser.id,
@@ -169,6 +217,7 @@ export async function POST(request: NextRequest) {
         shippingPincode,
         paymentStatus: method === 'cod' ? 'cod_pending' : 'pending',
         paymentMethod: method,
+        razorpayOrderId,
         items: {
           create: validatedItems.map((vi) => ({
             productId: vi.productId,
@@ -185,6 +234,80 @@ export async function POST(request: NextRequest) {
       include: { items: true },
     });
 
+    // 6b. Build email data and send notifications (non-blocking)
+    const emailData: OrderEmailData = {
+      orderNumber,
+      customerName,
+      customerEmail,
+      customerPhone,
+      totalAmount,
+      paymentMethod: method,
+      shippingAddress,
+      shippingCity,
+      shippingState,
+      shippingPincode,
+      items: validatedItems.map((vi) => ({
+        name: `Product`, // fallback; enriched below if possible
+        quantity: vi.quantity,
+        price: vi.price,
+        size: vi.size,
+        color: vi.color,
+      })),
+    };
+
+    // Enrich item names from the DB order items + products
+    const orderWithProducts = await prisma.order.findUnique({
+      where: { id: order.id },
+      include: {
+        items: {
+          include: {
+            product: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (orderWithProducts) {
+      emailData.items = orderWithProducts.items.map((item) => ({
+        name: item.product?.name || 'Custom Design T-Shirt',
+        quantity: item.quantity,
+        price: item.price,
+        size: item.size,
+        color: item.color,
+      }));
+    }
+
+    // For COD: send emails immediately (order is confirmed)
+    // For Razorpay: send emails after payment verification (in /api/checkout/verify)
+    if (method === 'cod') {
+      // Fire-and-forget — don't block the response
+      sendOrderConfirmation(emailData).catch(console.error);
+      sendNewOrderAlert(emailData).catch(console.error);
+    }
+
+    // 7. Return response based on payment method
+    if (method === 'razorpay') {
+      return NextResponse.json({
+        success: true,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        paymentMethod: method,
+        status: order.status,
+        // Razorpay-specific fields for the client popup
+        razorpayOrderId,
+        razorpayKeyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: Math.round(totalAmount * 100), // paise
+        currency: 'INR',
+        prefill: {
+          name: customerName,
+          email: customerEmail,
+          contact: customerPhone,
+        },
+      });
+    }
+
+    // COD response
     return NextResponse.json({
       success: true,
       orderId: order.id,
