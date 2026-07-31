@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { signOut, useSession } from 'next-auth/react';
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -21,11 +22,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
 const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Products', href: '/admin/products', icon: Package },
-  { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
-  { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
-  { name: 'Settings', href: '/admin/settings', icon: Settings },
+  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, exact: true },
+  { name: 'Products', href: '/admin/products', icon: Package, exact: false },
+  { name: 'Orders', href: '/admin/orders', icon: ShoppingCart, exact: false },
+  { name: 'Customers', href: '/admin/customers', icon: Users, exact: false },
+  { name: 'Analytics', href: '/admin/analytics', icon: BarChart3, exact: false },
+  { name: 'Settings', href: '/admin/settings', icon: Settings, exact: false },
 ];
 
 export default function AdminLayout({
@@ -35,6 +37,21 @@ export default function AdminLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const { data: session } = useSession();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminName = session?.user?.name || (session?.user as any)?.name || 'Admin';
+  const adminEmail = session?.user?.email || 'admin@for.com';
+  const initials = adminName
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'AD';
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: '/admin/login' });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -71,7 +88,9 @@ export default function AdminLayout({
           {/* Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = item.exact
+                ? pathname === item.href
+                : pathname === item.href || pathname.startsWith(item.href + '/');
               return (
                 <Link
                   key={item.name}
@@ -95,24 +114,21 @@ export default function AdminLayout({
           <div className="p-4">
             <div className="flex items-center gap-3 px-3 py-2">
               <Avatar>
-                <AvatarFallback>AD</AvatarFallback>
+                <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  Admin
+                  {adminName}
                 </p>
                 <p className="text-xs text-gray-500 truncate">
-                  admin@for.com
+                  {adminEmail}
                 </p>
               </div>
             </div>
             <Button
               variant="ghost"
               className="w-full justify-start mt-2"
-              onClick={() => {
-                // Handle logout
-                window.location.href = '/admin/login';
-              }}
+              onClick={handleLogout}
             >
               <LogOut className="h-4 w-4 mr-2" />
               Logout

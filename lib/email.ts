@@ -1,3 +1,4 @@
+import React from 'react';
 import { Resend } from 'resend';
 import OrderConfirmationEmail from './email-templates/order-confirmation';
 import NewOrderAlertEmail from './email-templates/new-order-alert';

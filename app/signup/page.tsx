@@ -116,7 +116,7 @@ function SignupForm() {
             Sign up to save wishlists, design custom tees, and track your orders.
           </p>
         </div>
-        <p className="text-[11px] text-[#4A4540] tracking-wider">© 2025 FOR. All rights reserved.</p>
+        <p className="text-[11px] text-[#4A4540] tracking-wider">© 2026 FOR. All rights reserved.</p>
       </div>
 
       {/* Right panel — sign up */}

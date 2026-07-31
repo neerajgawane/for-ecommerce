@@ -155,7 +155,7 @@ export default function HeroCollage() {
   };
 
   return (
-    <section className="relative w-full overflow-hidden" style={{ height: 'clamp(480px, 75vh, 720px)' }}>
+    <section className="relative w-full overflow-hidden" style={{ height: 'clamp(360px, 65vh, 720px)' }}>
 
       {/* ── Background image with crossfade ──────────────── */}
       <div
@@ -175,9 +175,9 @@ export default function HeroCollage() {
 
       {/* ── FRESH DROPS floating tag ─────────────────────── */}
       <div
-        className="absolute top-6 left-1/2 -translate-x-1/2 z-20"
+        className="absolute top-4 sm:top-6 left-1/2 -translate-x-1/2 z-20"
         style={{
-          padding: '6px 22px',
+          padding: '5px 16px',
           background: 'rgba(255,255,255,0.12)',
           backdropFilter: 'blur(10px)',
           border: '1px solid rgba(255,255,255,0.18)',
@@ -186,8 +186,8 @@ export default function HeroCollage() {
       >
         <span
           style={{
-            fontSize: '10px',
-            letterSpacing: '0.35em',
+            fontSize: '9px',
+            letterSpacing: '0.3em',
             textTransform: 'uppercase',
             fontWeight: 600,
             color: '#fff',
@@ -199,12 +199,12 @@ export default function HeroCollage() {
       </div>
 
       {/* ── Tab navigation (bottom-left) ────────────────── */}
-      <div className="absolute bottom-8 left-6 lg:left-12 z-20 flex items-center gap-1">
+      <div className="absolute bottom-16 sm:bottom-8 left-4 sm:left-6 lg:left-12 z-20 flex items-center gap-0.5 sm:gap-1 max-w-[calc(100%-2rem)] overflow-x-auto scrollbar-none">
         {TABS.map((tab, idx) => (
           <button
             key={tab.label}
             onClick={() => handleTabClick(idx)}
-            className="relative px-4 py-2 text-[10px] lg:text-[11px] tracking-[0.2em] uppercase font-semibold transition-all duration-300"
+            className="relative px-2.5 sm:px-4 py-1.5 sm:py-2 text-[9px] sm:text-[10px] lg:text-[11px] tracking-[0.15em] sm:tracking-[0.2em] uppercase font-semibold transition-all duration-300 flex-shrink-0"
             style={{
               color: idx === activeTab ? '#fff' : 'rgba(255,255,255,0.55)',
               background: idx === activeTab ? 'rgba(255,255,255,0.12)' : 'transparent',
@@ -239,7 +239,7 @@ export default function HeroCollage() {
 
       {/* ── Slide dots (bottom-center) ──────────────────── */}
       {currentSlides.length > 1 && (
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+        <div className="absolute bottom-8 sm:bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 sm:gap-2">
           {currentSlides.map((_, idx) => (
             <button
               key={idx}
@@ -254,8 +254,8 @@ export default function HeroCollage() {
               }}
               className="transition-all duration-300"
               style={{
-                width: idx === activeSlide ? '24px' : '8px',
-                height: '8px',
+                width: idx === activeSlide ? '20px' : '6px',
+                height: '6px',
                 borderRadius: '100px',
                 background: idx === activeSlide ? '#fff' : 'rgba(255,255,255,0.4)',
               }}
@@ -266,10 +266,10 @@ export default function HeroCollage() {
 
       {/* ── Prev / Next arrows (right side) ──────────────── */}
       {currentSlides.length > 1 && (
-        <div className="absolute bottom-8 right-6 lg:right-12 z-20 flex items-center gap-2">
+        <div className="absolute bottom-16 sm:bottom-8 right-4 sm:right-6 lg:right-12 z-20 flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={() => goSlide(-1)}
-            className="w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200"
+            className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all duration-200"
             style={{
               background: 'rgba(255,255,255,0.1)',
               backdropFilter: 'blur(8px)',
@@ -283,11 +283,11 @@ export default function HeroCollage() {
               (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.1)';
             }}
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
           <button
             onClick={() => goSlide(1)}
-            className="w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200"
+            className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all duration-200"
             style={{
               background: 'rgba(255,255,255,0.1)',
               backdropFilter: 'blur(8px)',
@@ -301,14 +301,14 @@ export default function HeroCollage() {
               (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.1)';
             }}
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         </div>
       )}
 
       {/* ── Text overlay (left-aligned) ─────────────────── */}
       <div
-        className="absolute inset-0 flex flex-col justify-center z-10 px-6 lg:px-12"
+        className="absolute inset-0 flex flex-col justify-center z-10 px-4 sm:px-6 lg:px-12"
         style={{ maxWidth: '600px' }}
       >
         <div
@@ -361,13 +361,13 @@ export default function HeroCollage() {
 
           <Link
             href={currentSlide.link}
-            className="inline-flex items-center gap-2.5 transition-all duration-300"
+            className="inline-flex items-center gap-2 sm:gap-2.5 transition-all duration-300"
             style={{
-              padding: '14px 36px',
+              padding: '11px 24px',
               background: '#fff',
               color: '#1C1C1C',
-              fontSize: '11px',
-              letterSpacing: '0.2em',
+              fontSize: '10px',
+              letterSpacing: '0.18em',
               fontWeight: 600,
               textTransform: 'uppercase',
               textDecoration: 'none',

@@ -15,7 +15,7 @@ export default function AboutPage() {
         <div className="max-w-[1440px] mx-auto">
           <p className="text-[11px] tracking-[0.25em] uppercase text-[#8B7355] mb-4 font-medium">Our Story</p>
           <h1
-            className="text-5xl lg:text-6xl text-[#FAF8F5] leading-[1.1] max-w-2xl"
+            className="text-3xl sm:text-5xl lg:text-6xl text-[#FAF8F5] leading-[1.1] max-w-2xl"
             style={{ fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif", fontWeight: 500 }}
           >
             Design your story, <em>wear your art.</em>

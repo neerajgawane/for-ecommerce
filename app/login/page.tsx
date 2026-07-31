@@ -88,7 +88,7 @@ function LoginForm() {
             Sign in to save your wishlist, track orders, and access your custom designs.
           </p>
         </div>
-        <p className="text-[11px] text-[#4A4540] tracking-wider">© 2025 FOR. All rights reserved.</p>
+        <p className="text-[11px] text-[#4A4540] tracking-wider">© 2026 FOR. All rights reserved.</p>
       </div>
 
       {/* Right panel — sign in */}

@@ -76,7 +76,8 @@ export const useCartStore = create<CartStore>()(
             (i) =>
               i.productId === item.productId &&
               i.color === item.color &&
-              i.size === item.size
+              i.size === item.size &&
+              (item.productId !== 'custom-design' || i.designId === item.designId)
           );
 
           if (existingItem) {

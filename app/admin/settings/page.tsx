@@ -50,17 +50,18 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<StoreSettings>(DEFAULT_SETTINGS);
   const [savedMessage, setSavedMessage] = useState('');
   const [activeSection, setActiveSection] = useState<SectionKey>('store');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Admin profile
-  const [adminName, setAdminName] = useState('Admin');
-  const [adminEmail, setAdminEmail] = useState('admin@for.com');
+  const [adminName, setAdminName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
-    // Load settings from localStorage
+    // Load store settings from localStorage (store-level config)
     const savedSettings = localStorage.getItem('forAdminSettings');
     if (savedSettings) {
       try {
@@ -69,16 +70,23 @@ export default function SettingsPage() {
         // Use defaults
       }
     }
-    const savedProfile = localStorage.getItem('forAdminProfile');
-    if (savedProfile) {
+
+    // Load admin profile from API (database-backed)
+    const fetchProfile = async () => {
       try {
-        const profile = JSON.parse(savedProfile);
-        setAdminName(profile.name || 'Admin');
-        setAdminEmail(profile.email || 'admin@for.com');
+        const res = await fetch('/api/admin/settings');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.admin) {
+            setAdminName(data.admin.name || '');
+            setAdminEmail(data.admin.email || '');
+          }
+        }
       } catch {
-        // Use defaults
+        // Fallback — will show empty fields
       }
-    }
+    };
+    fetchProfile();
   }, []);
 
   const saveSettings = () => {
@@ -87,7 +95,7 @@ export default function SettingsPage() {
     setTimeout(() => setSavedMessage(''), 3000);
   };
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     setPasswordError('');
     if (newPassword && newPassword !== confirmPassword) {
       setPasswordError('Passwords do not match');
@@ -97,12 +105,47 @@ export default function SettingsPage() {
       setPasswordError('Password must be at least 6 characters');
       return;
     }
-    localStorage.setItem('forAdminProfile', JSON.stringify({ name: adminName, email: adminEmail }));
-    setSavedMessage('Profile updated successfully!');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => setSavedMessage(''), 3000);
+    if (newPassword && !currentPassword) {
+      setPasswordError('Current password is required to change password');
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: adminName,
+          email: adminEmail,
+          ...(newPassword ? { currentPassword, newPassword } : {}),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setPasswordError(data.error || 'Failed to update profile');
+        setIsSavingProfile(false);
+        return;
+      }
+
+      // Update local state with returned data
+      if (data.admin) {
+        setAdminName(data.admin.name || '');
+        setAdminEmail(data.admin.email || '');
+      }
+
+      setSavedMessage(data.message || 'Profile updated successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setSavedMessage(''), 3000);
+    } catch {
+      setPasswordError('Network error. Please try again.');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const updateSetting = <K extends keyof StoreSettings>(key: K, value: StoreSettings[K]) => {
@@ -421,9 +464,10 @@ export default function SettingsPage() {
               <div className="mt-6 pt-4 border-t flex justify-end">
                 <button
                   onClick={saveProfile}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition text-sm font-medium"
+                  disabled={isSavingProfile}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <Save className="w-4 h-4" /> Update Profile
+                  <Save className="w-4 h-4" /> {isSavingProfile ? 'Saving…' : 'Update Profile'}
                 </button>
               </div>
             </div>

@@ -103,7 +103,7 @@ function OrderSuccessContent() {
           </div>
 
           {order && (
-            <div className="border-t border-[#E8E2D9] pt-5 grid grid-cols-3 gap-4 text-sm">
+            <div className="border-t border-[#E8E2D9] pt-5 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
               <div>
                 <p className="text-[10px] tracking-[0.15em] uppercase text-[#8B7355] font-medium mb-1">Shipping To</p>
                 <p className="text-[#1C1C1C]">{order.customerName}</p>
